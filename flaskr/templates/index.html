@@ -1,15 +1,52 @@
-<span id='test'></span>
+<!--<span id='test'></span>
 <br></br>
-yay, it works!
-
+yay, it works!-->
+<canvas id='canvas'></canvas>
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
+//socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
     var socket = io.connect('http://' + document.domain + ':' + location.port);
+    var thingsToDraw = [];
     socket.on('connect', function() {
         socket.emit('my event', {data: 'I\'m connected!'});
+        var canvas = document.getElementById('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        context = canvas.getContext('2d');
+        context.fillStyle = 'orange';
+        context.fillRect(0,0,canvas.width,canvas.height);
+        tick();
     });
     socket.on('test',function(message){
-        document.getElementById('test').innerHTML = message;
+        //document.getElementById('test').innerHTML = message;
     });
+
+    socket.on('update', function(data){
+        console.log(data);
+        thingsToDraw = JSON.parse(JSON.stringify(data));
+        console.log(thingsToDraw);
+        console.log(thingsToDraw.length);
+        var count = 0;
+        while (count<thingsToDraw.length){
+            console.log(count + thingsToDraw[count].color);
+            count++;
+        }
+    });
+
+    function tick(){
+        context.beginPath();
+        var count = 0;
+        while (count<thingsToDraw.length){
+            var x = thingsToDraw[count].x;
+            var y = thingsToDraw[count].y;
+            var r = thingsToDraw[count].r;
+            var color = thingsToDraw[count].color;
+            context.fillStyle = color;
+            context.ellipse(x, y, r, r, 0, 2 * Math.PI, false);
+            context.fill();
+            count++;
+        }
+        window.requestAnimationFrame(tick);
+    }
 </script>
 
