@@ -1,6 +1,6 @@
 from flask import Flask, render_template
-from flask.ext.socketio import SocketIO
-from flask.ext.socketio import send, emit
+from flask_socketio import SocketIO
+from flask_socketio import send, emit
 
 import time
 global prevTime
