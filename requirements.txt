@@ -1,7 +1,7 @@
 Flask==0.10.1
 Flask-Sockets==0.2.0
 gevent==1.0.2
-gevent-websocket==0.9.5
+gevent-websocket==0.10.1
 greenlet==0.4.9
 gunicorn==19.4.5
 itsdangerous==0.24
