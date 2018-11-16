@@ -1,1 +1,1 @@
-web: gunicorn flaskr.wsgi --log-file -
+web: gunicorn -k eventlet app:flaskr
