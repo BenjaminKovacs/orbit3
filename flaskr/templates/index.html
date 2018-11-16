@@ -6,14 +6,30 @@ yay, it works!-->
 <script type="text/javascript" charset="utf-8">
 //socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
     var socket = io.connect('http://' + document.domain + ':' + location.port);
+    var circles = [];
+    var rectangles = [];
+    var polygons = [];
     var thingsToDraw = [];
+    var scale;
     socket.on('connect', function() {
         socket.emit('my event', {data: 'I\'m connected!'});
         var canvas = document.getElementById('canvas');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        var margin = 16; //remove scroll bars
+        var width = window.innerWidth-margin;
+        var height = window.innerHeight-margin;
+        var whRatio = 1536/754;
+        if (width/height > whRatio){
+            canvas.height = height;
+            canvas.width = whRatio * height;
+        }
+        else{
+            canvas.width = width;
+            canvas.height = width/whRatio;
+        }
+        console.log('width'+canvas.width+' height'+canvas.height);
+        scale = canvas.width/1536;
         context = canvas.getContext('2d');
-        context.fillStyle = 'orange';
+        context.fillStyle = 'black';
         context.fillRect(0,0,canvas.width,canvas.height);
         tick();
     });
@@ -24,28 +40,61 @@ yay, it works!-->
     socket.on('update', function(data){
         console.log(data);
         thingsToDraw = JSON.parse(JSON.stringify(data));
-        console.log(thingsToDraw);
-        console.log(thingsToDraw.length);
-        var count = 0;
-        while (count<thingsToDraw.length){
-            console.log(count + thingsToDraw[count].color);
-            count++;
-        }
+        circles = thingsToDraw.circles;
+        rectangles = thingsToDraw.rectangles;
+        polygons = thingsToDraw.polygons;
     });
 
-    function tick(){
+    window.addEventListener('mousedown', function (e) {
+        console.log('x: '+e.clientX, 'y: '+e.clientY);
+        console.log(window.innerWidth)
+    })
+
+    function drawCircles(){
         context.beginPath();
         var count = 0;
-        while (count<thingsToDraw.length){
-            var x = thingsToDraw[count].x;
-            var y = thingsToDraw[count].y;
-            var r = thingsToDraw[count].r;
-            var color = thingsToDraw[count].color;
+        while (count<circles.length){
+            var x = circles[count].x * scale;
+            var y = circles[count].y * scale;
+            var r = circles[count].r * scale;
+            var color = circles[count].color;
             context.fillStyle = color;
             context.ellipse(x, y, r, r, 0, 2 * Math.PI, false);
             context.fill();
             count++;
         }
+        context.closePath();
+    }
+
+    function drawRectangles(){}
+    function drawPolygons(){
+        var count = 0;
+        while (count < polygons.length){
+            polygon = polygons[count];
+            //console.log(polygon.points[0].x);
+            context.fillStyle = polygon.color;
+            context.beginPath();
+            context.moveTo(polygon.points[0].x*scale, polygon.points[0].y*scale);
+            var pointNum = 0;
+            while(pointNum < polygon.points.length){
+                context.lineTo(polygon.points[pointNum].x*scale, polygon.points[pointNum].y*scale);
+                pointNum++;
+            }
+            context.fill();
+            context.stroke();
+            context.closePath();
+            
+            count++;
+        }
+    }
+
+    function tick(){
+        context.fillStyle = 'black';
+        context.fillRect(0,0,canvas.width,canvas.height);
+        drawCircles();
+        drawRectangles();
+        drawPolygons();
+        socket.emit('my event', {data: 'I\'m connected!'});
         window.requestAnimationFrame(tick);
     }
 </script>
