@@ -1,1 +1,2 @@
-web: gunicorn -k flask_sockets.worker flaskr:app
+export FLASK_APP=flaskr
+web: flask run
