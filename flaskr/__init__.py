@@ -162,7 +162,7 @@ def index():
 
 c = Planet(View.width//2,View.height//2,75,100,'red')
 global s
-s = Ship(View.width//2,View.height//2 - 200, 1,200,0,'blue')
+s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
     
 @socketio.on('my event')
 def handle_message(message):
@@ -171,6 +171,8 @@ def handle_message(message):
     print('going to send a message now')
     t = time.time()
     dt = t - prevTime
+    maxdt = .02
+    dt = min(dt,maxdt)
     if (dt > .01):
         Ship.moveAll(dt)
         prevTime = t
@@ -179,6 +181,18 @@ def handle_message(message):
         emit('update', {'circles':Circle.getSend(),
                         'polygons':getSend(Polygon),
                         'rectangles':0})
+    # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
+def tick():
+    global prevTime
+    t = time.time()
+    dt = t - prevTime
+    Ship.moveAll(dt)
+    emit('update', {'circles':Circle.getSend(),
+                        'polygons':getSend(Polygon),
+                        'rectangles':0})
+    prevTime = t
+    time.sleep(.02)
+    tick()
 
 if __name__ == '__main__':
     socketio.run(app)
