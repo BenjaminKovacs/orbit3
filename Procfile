@@ -1,2 +1,1 @@
-export FLASK_APP=flaskr
-web: flask run
+web: unicorn flaskr.wsgi --log-file -
