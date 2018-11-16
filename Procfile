@@ -1,1 +1,1 @@
-web: unicorn flaskr.wsgi --log-file -
+web: gunicorn flaskr.wsgi --log-file -
