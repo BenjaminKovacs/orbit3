@@ -1,1 +1,1 @@
-web: gunicorn --worker-class eventlet -w 1 module:flaskr
+web: gunicorn --worker-class eventlet -w 1 flaskr:app
