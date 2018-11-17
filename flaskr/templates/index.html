@@ -11,6 +11,54 @@ yay, it works!-->
     var polygons = [];
     var thingsToDraw = [];
     var scale;
+
+    //record keys currently pressed, copied from capture the flag game I created
+    keysPressed = [];
+    for (i=0; i < 193; i++){keysPressed[i]=false;}
+
+    function resetPressedKeys(){
+    for (i=0; i < 193; i++){keysPressed[i]=false;}
+    }
+
+
+    window.addEventListener('keydown', function (e) {
+    for (i = 8; i < 193; i++){
+        if (e.keyCode == i){
+        keysPressed[i] = true;
+        }
+    }
+    if (e.keyCode == 37 || e.keyCode==65){
+            socket.emit('rotate',1);
+        }
+    if (e.keyCode == 39 || e.keyCode==68){
+            socket.emit('rotate',-1);
+        }
+    if (e.keyCode == 38 || e.keyCode==87){
+            socket.emit('fire engine',1);
+        }
+    });
+    window.addEventListener('keyup', function (e) {
+    for (i = 8; i < 193; i++){
+        if (e.keyCode == i){
+        keysPressed[i] = false;
+        }
+    }
+    if (e.keyCode == 37 || e.keyCode==65){
+            socket.emit('rotate',0);
+        }
+    if (e.keyCode == 39 || e.keyCode==68){
+            socket.emit('rotate',0);
+        }
+    if (e.keyCode == 38 || e.keyCode==87){
+            socket.emit('fire engine',0);
+        }
+    });
+
+    //left = keysPressed[37] || keysPressed[65];
+    //right = keysPressed[39] || keysPressed[68];
+    //up = keysPressed[38] || keysPressed[87];
+    //down = keysPressed[40] || keysPressed[83];
+
     socket.on('connect', function() {
         socket.emit('my event', {data: 'I\'m connected!'});
         var canvas = document.getElementById('canvas');
@@ -67,6 +115,8 @@ yay, it works!-->
     }
 
     function drawRectangles(){}
+    //https://www.w3schools.com/tags/canvas_lineto.asp
+    //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
     function drawPolygons(){
         var count = 0;
         while (count < polygons.length){
@@ -94,7 +144,7 @@ yay, it works!-->
         drawCircles();
         drawRectangles();
         drawPolygons();
-        socket.emit('my event', {data: 'I\'m connected!'});
+        //socket.emit('my event', {data: 'I\'m connected!'});
         window.requestAnimationFrame(tick);
     }
 </script>

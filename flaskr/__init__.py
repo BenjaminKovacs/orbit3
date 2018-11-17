@@ -1,8 +1,16 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from flask_socketio import send, emit
+from flask import request
+from flask_socketio import join_room, leave_room
+
+import threading
+import eventlet
+eventlet.monkey_patch()
 
 import time
+import math
+import random
 global prevTime
 prevTime = time.time()
 
@@ -11,6 +19,19 @@ def getSend(clss):
     for item in clss.lst:
         result.append(item.getDict()) 
     return result
+
+class User(object):
+    userDict = {}
+    def __init__(this,id,ship,view):
+        this.id = id
+        this.ship = ship
+        this.view = view
+        User.userDict[id] = this
+        
+    def destroy(this):
+        this.ship.destroy()
+        this.view.destroy()
+        del User.userDict[this.id]
 
 class View(object):
     width = 1536
@@ -22,6 +43,8 @@ class View(object):
         return {'x':this.x,
                 'y':this.y,
                 }
+    def destroy(this):
+        pass
 
 class Circle(object):
     lst = []
@@ -81,6 +104,17 @@ class Point(object):
     def direction(this):
         return this.scale(1/this.magnitude())
     
+    def getAngle(this):
+        return math.atan2(this.y,this.x)
+        
+    def rotate(this,angle):
+        print(this.x,this.y)
+        angle = this.getAngle() - angle
+        pt = getDir(angle).scale(this.magnitude())
+        this.x = pt.x
+        this.y = pt.y
+        print(this.x,this.y)
+    
     def getDict(this):
         return {'x':this.x,
                 'y':this.y}
@@ -113,6 +147,22 @@ class Polygon(object):
                 'points':this.getDictPoints(),
                 'color':this.color}
     
+    def rotate(this,angle):
+        for point in this.points:
+            point.rotate(angle)
+                
+    def destroy(this):
+        Polygon.lst.remove(this)
+
+def getDir(angle):
+    return Point(math.cos(angle),math.sin(angle))
+
+class Engine(object):
+    def __init__(this,force):
+        this.force = force
+    def destroy():
+        pass
+    
 class Ship(object):
     lst = []
     def __init__(this, x, y, mass, vx, vy, color):
@@ -124,25 +174,37 @@ class Ship(object):
         this.vy = vy
         this.v = Point(vx,vy)
         this.color = color
-        this.shapePoints = [Point(-10,0),Point(0,20),Point(10,0)]
+        this.shapePoints = [Point(-10,0),Point(0,30),Point(10,0)]
         this.shape = Polygon(x,y,this.shapePoints,color)
+        
+        this.angle = math.pi / 2
+        this.turn = 0
+        this.throttle = 0
+        this.engine = Engine(1)
+        
         Ship.lst.append(this)
         
     def updatePolygon(this):
         this.shape.x = this.pos.x
         this.shape.y = this.pos.y
-        print(this.shape.x == this.pos.x)
         
     def moveShip(this,dt):
+        this.angle -= this.turn
+        this.shape.rotate(this.turn)
+        this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
         for planet in Planet.lst:
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
         this.updatePolygon()
         
+    def destroy(this):
+        this.shape.destroy()
+        this.engine.destroy()
+        Ship.lst.remove(this)
+        
     @staticmethod
     def moveAll(dt):
         for ship in Ship.lst:
-            print(ship)
             ship.moveShip(dt)
             
                 
@@ -162,10 +224,13 @@ def index():
 
 c = Planet(View.width//2,View.height//2,75,100,'red')
 global s
-s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
-    
+#s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
+#Ship(View.width//2,View.height//2 + 200, 1, 170,0,'green')   
+global room 
 @socketio.on('my event')
 def handle_message(message):
+    global room
+    room = 'main'
     global prevTime
     print('received message: ' + str(message))
     print('going to send a message now')
@@ -173,26 +238,50 @@ def handle_message(message):
     dt = t - prevTime
     maxdt = .02
     dt = min(dt,maxdt)
+    join_room('main')
     if (dt > .01):
         Ship.moveAll(dt)
         prevTime = t
-        global s
-        print(s.shape.x)
         emit('update', {'circles':Circle.getSend(),
                         'polygons':getSend(Polygon),
                         'rectangles':0})
     # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
+    
+@socketio.on('connect')
+def start():
+    print('a user connected')
+    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
+    User(request.sid, s, View(s.x,s.y))
+    join_room('main')
+ 
+@socketio.on('fire engine')
+def updateMotion(value):
+    value = min(value,1)
+    User.userDict[request.sid].ship.throttle = value*100
+    print('accelerating')
+    
+@socketio.on('rotate')
+def rotate(value):
+    value = max(min(value,1),-1)
+    User.userDict[request.sid].ship.turn = value*.1
+    print('turning')
+    
 def tick():
-    global prevTime
-    t = time.time()
-    dt = t - prevTime
-    Ship.moveAll(dt)
-    emit('update', {'circles':Circle.getSend(),
-                        'polygons':getSend(Polygon),
-                        'rectangles':0})
-    prevTime = t
-    time.sleep(.02)
-    tick()
+    while True:
+        global room
+        global prevTime
+        t = time.time()
+        dt = t - prevTime
+        Ship.moveAll(dt)
+        socketio.emit('update', {'circles':Circle.getSend(),
+                            'polygons':getSend(Polygon),
+                            'rectangles':0}, namespace='/', broadcast=True)
+        prevTime = t
+        eventlet.sleep(.01)
+
+#thread = threading.Thread(target=tick)
+#thread.start()
+eventlet.spawn(tick)
 
 if __name__ == '__main__':
     socketio.run(app)
