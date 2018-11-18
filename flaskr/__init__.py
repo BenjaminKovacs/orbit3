@@ -149,7 +149,7 @@ class Bullet(Circle):
         this.v = Point(vx,vy)
         this.mass = mass
         this.timeShot = time.time()
-        this.life = 60
+        this.life = 10
         Bullet.lst.append(this)
         
     def move(this,dt):
@@ -300,8 +300,8 @@ class Ship(object):
                 bullet.destroy()
                 break
         for planet in Planet.lst:
-            print(planet.checkIntersect(this.shape))
             if planet.checkIntersect(this.shape):
+                print('yay')
                 this.destroy()
                 break
     
