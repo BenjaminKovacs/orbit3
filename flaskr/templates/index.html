@@ -11,6 +11,8 @@ yay, it works!-->
     var polygons = [];
     var thingsToDraw = [];
     var scale;
+    var view = {x:0,
+                y:0}
 
     //record keys currently pressed, copied from capture the flag game I created
     keysPressed = [];
@@ -96,6 +98,11 @@ yay, it works!-->
         rectangles = thingsToDraw.rectangles;
         polygons = thingsToDraw.polygons;
     });
+    var adjust;
+    socket.on('view', function(data){
+        view = JSON.parse(JSON.stringify(data));
+        adjust = 1/(2*Math.sqrt(Math.pow((circles[0].x - view.x),2)+Math.pow((circles[0].y - view.y),2)))
+    });
 
     window.addEventListener('mousedown', function (e) {
         console.log('x: '+e.clientX, 'y: '+e.clientY);
@@ -107,12 +114,13 @@ yay, it works!-->
         var count = 0;
         while (count<circles.length){
             context.beginPath();
-            var x = circles[count].x * scale;
-            var y = circles[count].y * scale;
+            var x = ((circles[count].x-view.x)+canvas.width/2) * scale;
+            var y = ((circles[count].y-view.y)+canvas.height/2) * scale;
             var r = circles[count].r * scale;
             var color = circles[count].color;
             context.fillStyle = color;
             context.ellipse(x, y, r, r, 0, 2 * Math.PI, false);
+            console.log('x'+x+'y'+y+'r'+r);
             context.fill();
             count++;
             context.closePath();
@@ -130,10 +138,12 @@ yay, it works!-->
             //console.log(polygon.points[0].x);
             context.fillStyle = polygon.color;
             context.beginPath();
-            context.moveTo(polygon.points[0].x*scale, polygon.points[0].y*scale);
-            var pointNum = 0;
+            context.moveTo((polygon.points[0].x-view.x+canvas.width/2)*scale, 
+                    (polygon.points[0].y-view.y+canvas.height/2)*scale);
+            var pointNum = 1;
             while(pointNum < polygon.points.length){
-                context.lineTo(polygon.points[pointNum].x*scale, polygon.points[pointNum].y*scale);
+                context.lineTo((polygon.points[pointNum].x-view.x+canvas.width/2)*scale,
+                        (polygon.points[pointNum].y-view.y+canvas.height/2)*scale);
                 pointNum++;
             }
             context.fill();

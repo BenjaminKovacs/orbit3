@@ -60,7 +60,7 @@ class Circle(object):
         
     def __repr__(this):
         return (this.x,this.y,this.r,this.color)
-        
+
     def getDict(this):
         return {'x':this.pos.x,
                 'y':this.pos.y,
@@ -69,7 +69,7 @@ class Circle(object):
     #https://brilliant.org/wiki/dot-product-distance-between-point-and-a-line/
     def checkIntersect(this, other):
         if isinstance(other, Circle):
-            pass
+            return this.pos.distance(other.pos) < (this.r+other.r)
         elif isinstance(other, Polygon):
             pts = other.getDrawPoints()
             for i in range(len(pts)):
@@ -81,22 +81,15 @@ class Circle(object):
                 d = n.dot(l)
                 n = n.scale(abs(d))
                 
+                if pts[i].distance(this.pos) < this.r:
+                    return True
+                
                 intersect = this.pos.subtract(n)
                 xbetween = (pts[i-1].x <= intersect.x <= pts[i].x) or (pts[i].x <= intersect.x <= pts[i-1].x)
                 ybetween = (pts[i-1].y <= intersect.y <= pts[i].y) or (pts[i].y <= intersect.y <= pts[i-1].y)
-                if abs(d) <= this.r and xbetween and ybetween:
-                    print(d, n.x,n.y)
-                    print(pts[i].x,pts[i].y)
-                    print(pts[i-1].x,pts[i-1].y)
-                    print(this.pos.x,this.pos.y)
-                    print(intersect.x,intersect.y)
+                cross = n.intersectDiff(pts[i].subtract(pts[i-1]))
+                if abs(d) <= this.r and cross:
                     return True
-                if type(this) == Planet:
-                    print(d, n.x,n.y)
-                    print(pts[i].x,pts[i].y)
-                    print(pts[i-1].x,pts[i-1].y)
-                    print(this.pos.x,this.pos.y)
-                    print(intersect.x,intersect.y)
                     
             #check if circle is inside polygon
             count = 0
@@ -155,6 +148,8 @@ class Bullet(Circle):
     def move(this,dt):
         for planet in Planet.lst:
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
+            if this.checkIntersect(planet):
+                this.destroy()
         this.pos = this.pos.add(this.v.scale(dt))
     
     def destroy(this):
@@ -200,10 +195,24 @@ class Point(object):
     
     def dot(this,other):
         return this.x*other.x + this.y*other.y
+        
+    def intersectDiff(this,other):
+        return intersect(Point(0,0),this,Point(0,0),other)
+    
+    def distance(this,other):
+        return ((this.x-other.x)**2 + (this.y-other.y)**2)**.5
     
     def getDict(this):
         return {'x':this.x,
                 'y':this.y}
+                
+# https://stackoverflow.com/questions/3838329/how-can-i-check-if-two-segments-intersect
+def ccw(A,B,C):
+    return (C.y-A.y) * (B.x-A.x) > (B.y-A.y) * (C.x-A.x)
+
+# Return true if line segments AB and CD intersect
+def intersect(A,B,C,D):
+    return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
 
 class Polygon(object):
     lst = []
@@ -256,9 +265,9 @@ class Weapon(object):
         this.bcolor = bcolor
         this.br = br
         
-    def shoot(this, x,y, direction):
+    def shoot(this, x,y, svx,svy, direction):
         v = direction.scale(this.bspeed)
-        Bullet(x,y, v.x,v.y,this.br,this.bmass,this.bcolor)
+        Bullet(x,y, v.x+svx,v.y+svy,this.br,this.bmass,this.bcolor)
     
 class Ship(object):
     lst = []
@@ -308,7 +317,7 @@ class Ship(object):
     def shoot(this):
         x = this.pos.x + this.shape.points[1].x
         y = this.pos.y + this.shape.points[1].y
-        this.weapon.shoot(x,y,getDir(this.angle))
+        this.weapon.shoot(x,y,this.v.x,this.v.y,getDir(this.angle))
         
     def destroy(this):
         print(len(Ship.lst))
