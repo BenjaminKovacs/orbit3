@@ -36,6 +36,10 @@ yay, it works!-->
     if (e.keyCode == 38 || e.keyCode==87){
             socket.emit('fire engine',1);
         }
+    if (e.keyCode == 40 || e.keyCode==83){
+        console.log('shooting');
+        socket.emit('shoot');
+        }
     });
     window.addEventListener('keyup', function (e) {
     for (i = 8; i < 193; i++){
@@ -99,9 +103,10 @@ yay, it works!-->
     })
 
     function drawCircles(){
-        context.beginPath();
+        
         var count = 0;
         while (count<circles.length){
+            context.beginPath();
             var x = circles[count].x * scale;
             var y = circles[count].y * scale;
             var r = circles[count].r * scale;
@@ -110,8 +115,9 @@ yay, it works!-->
             context.ellipse(x, y, r, r, 0, 2 * Math.PI, false);
             context.fill();
             count++;
+            context.closePath();
         }
-        context.closePath();
+        
     }
 
     function drawRectangles(){}

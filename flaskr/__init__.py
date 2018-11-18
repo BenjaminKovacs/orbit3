@@ -62,8 +62,8 @@ class Circle(object):
         return (this.x,this.y,this.r,this.color)
         
     def getDict(this):
-        return {'x':this.x,
-                'y':this.y,
+        return {'x':this.pos.x,
+                'y':this.pos.y,
                 'r':this.r,
                 'color':this.color}
                 
@@ -83,6 +83,24 @@ class Planet(Circle):
     def getA(this,pos):
         r = this.pos.subtract(pos)
         return r.direction().scale(Planet.g*this.mass/(r.magnitude()**2))
+
+class Bullet(Circle):
+    lst = []
+    def __init__(this,x,y,vx,vy,r,mass,color):
+        super().__init__(x,y,r,color)
+        this.v = Point(vx,vy)
+        this.mass = mass
+        Bullet.lst.append(this)
+        
+    def move(this,dt):
+        for planet in Planet.lst:
+            this.v = this.v.add(planet.getA(this.pos).scale(dt))
+        this.pos = this.pos.add(this.v.scale(dt))
+        
+    @staticmethod    
+    def moveAll(dt):
+        for bullet in Bullet.lst:
+            bullet.move(dt)
 
 class Point(object):
     def __init__(this,x,y):
@@ -162,6 +180,17 @@ class Engine(object):
         this.force = force
     def destroy():
         pass
+
+class Weapon(object):
+    def __init__(this, bmass, bspeed, bcolor, br):
+        this.bmass = bmass
+        this.bspeed = bspeed
+        this.bcolor = bcolor
+        this.br = br
+        
+    def shoot(this, x,y, direction):
+        v = direction.scale(this.bspeed)
+        Bullet(x,y, v.x,v.y,this.br,this.bmass,this.bcolor)
     
 class Ship(object):
     lst = []
@@ -181,6 +210,7 @@ class Ship(object):
         this.turn = 0
         this.throttle = 0
         this.engine = Engine(1)
+        this.weapon = Weapon(1, 200, 'orange', 2)
         
         Ship.lst.append(this)
         
@@ -196,6 +226,11 @@ class Ship(object):
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
         this.updatePolygon()
+    
+    def shoot(this):
+        x = this.pos.x + this.shape.points[1].x
+        y = this.pos.y + this.shape.points[1].y
+        this.weapon.shoot(x,y,getDir(this.angle))
         
     def destroy(this):
         this.shape.destroy()
@@ -265,6 +300,10 @@ def rotate(value):
     value = max(min(value,1),-1)
     User.userDict[request.sid].ship.turn = value*.1
     print('turning')
+
+@socketio.on('shoot')
+def fire():
+    User.userDict[request.sid].ship.shoot()
     
 def tick():
     while True:
@@ -273,6 +312,7 @@ def tick():
         t = time.time()
         dt = t - prevTime
         Ship.moveAll(dt)
+        Bullet.moveAll(dt)
         socketio.emit('update', {'circles':Circle.getSend(),
                             'polygons':getSend(Polygon),
                             'rectangles':0}, namespace='/', broadcast=True)
