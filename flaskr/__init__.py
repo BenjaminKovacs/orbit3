@@ -91,6 +91,12 @@ class Circle(object):
                     print(this.pos.x,this.pos.y)
                     print(intersect.x,intersect.y)
                     return True
+                if type(this) == Planet:
+                    print(d, n.x,n.y)
+                    print(pts[i].x,pts[i].y)
+                    print(pts[i-1].x,pts[i-1].y)
+                    print(this.pos.x,this.pos.y)
+                    print(intersect.x,intersect.y)
                     
             #check if circle is inside polygon
             count = 0
@@ -143,6 +149,7 @@ class Bullet(Circle):
         this.v = Point(vx,vy)
         this.mass = mass
         this.timeShot = time.time()
+        this.life = 60
         Bullet.lst.append(this)
         
     def move(this,dt):
@@ -158,6 +165,9 @@ class Bullet(Circle):
     def moveAll(dt):
         for bullet in Bullet.lst:
             bullet.move(dt)
+            print(time.time() - bullet.timeShot)
+            if time.time() - bullet.timeShot > bullet.life:
+                bullet.destroy()
 
 class Point(object):
     def __init__(this,x,y):
@@ -289,6 +299,11 @@ class Ship(object):
                 this.destroy()
                 bullet.destroy()
                 break
+        for planet in Planet.lst:
+            print(planet.checkIntersect(this.shape))
+            if planet.checkIntersect(this.shape):
+                this.destroy()
+                break
     
     def shoot(this):
         x = this.pos.x + this.shape.points[1].x
@@ -382,6 +397,8 @@ def tick():
                             'polygons':getSend(Polygon),
                             'rectangles':0}, namespace='/', broadcast=True)
         prevTime = t
+        for user in User.userDict.keys():
+            socketio.emit('view',User.userDict[user].ship.pos.getDict(),room=User.userDict[user].id)
         eventlet.sleep(.01)
 
 #thread = threading.Thread(target=tick)
