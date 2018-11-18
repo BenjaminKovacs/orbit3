@@ -66,6 +66,58 @@ class Circle(object):
                 'y':this.pos.y,
                 'r':this.r,
                 'color':this.color}
+    #https://brilliant.org/wiki/dot-product-distance-between-point-and-a-line/
+    def checkIntersect(this, other):
+        if isinstance(other, Circle):
+            pass
+        elif isinstance(other, Polygon):
+            pts = other.getDrawPoints()
+            for i in range(len(pts)):
+                vect = pts[i].subtract(pts[i-1])
+                n = vect.scale(-1)
+                n = Point(n.y,n.x) #perpendicular to side
+                n = n.direction()
+                l = this.pos.subtract(pts[i])
+                d = n.dot(l)
+                n = n.scale(abs(d))
+                
+                intersect = this.pos.subtract(n)
+                xbetween = (pts[i-1].x <= intersect.x <= pts[i].x) or (pts[i].x <= intersect.x <= pts[i-1].x)
+                ybetween = (pts[i-1].y <= intersect.y <= pts[i].y) or (pts[i].y <= intersect.y <= pts[i-1].y)
+                if abs(d) <= this.r and xbetween and ybetween:
+                    print(d, n.x,n.y)
+                    print(pts[i].x,pts[i].y)
+                    print(pts[i-1].x,pts[i-1].y)
+                    print(this.pos.x,this.pos.y)
+                    print(intersect.x,intersect.y)
+                    return True
+                    
+            #check if circle is inside polygon
+            count = 0
+            a = []
+            b = []
+            c = []
+            for i in range(len(pts)):
+                ybetween = (pts[i-1].y < this.pos.y < pts[i].y) or (pts[i].y < this.pos.y < pts[i-1].y)
+                line = pts[i].subtract(pts[i-1])
+                m = line.y/line.x
+                if ybetween and ((pts[i-1].x + (this.pos.y-pts[i-1].y)/m) > this.pos.x):
+                    a.append((pts[i].x,pts[i].y))
+                    b.append((pts[i-1].x,pts[i-1].y))
+                    c.append((this.pos.x,this.pos.y))
+                    count += 1
+
+            if count%2 == 1:
+                print(count)
+                print(a)
+                print(b)
+                print(c)
+                return True
+            return False
+    
+    def destroy(this):
+        Circle.lst.remove(this)
+        print('destroyed')
                 
     @staticmethod
     def getSend():
@@ -96,6 +148,10 @@ class Bullet(Circle):
         for planet in Planet.lst:
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
+    
+    def destroy(this):
+        super().destroy()
+        Bullet.lst.remove(this)
         
     @staticmethod    
     def moveAll(dt):
@@ -126,12 +182,13 @@ class Point(object):
         return math.atan2(this.y,this.x)
         
     def rotate(this,angle):
-        print(this.x,this.y)
         angle = this.getAngle() - angle
         pt = getDir(angle).scale(this.magnitude())
         this.x = pt.x
         this.y = pt.y
-        print(this.x,this.y)
+    
+    def dot(this,other):
+        return this.x*other.x + this.y*other.y
     
     def getDict(this):
         return {'x':this.x,
@@ -178,7 +235,7 @@ def getDir(angle):
 class Engine(object):
     def __init__(this,force):
         this.force = force
-    def destroy():
+    def destroy(this):
         pass
 
 class Weapon(object):
@@ -226,6 +283,11 @@ class Ship(object):
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
         this.updatePolygon()
+        for bullet in Bullet.lst:
+            if bullet.checkIntersect(this.shape):
+                this.destroy()
+                bullet.destroy()
+                break
     
     def shoot(this):
         x = this.pos.x + this.shape.points[1].x
@@ -233,6 +295,7 @@ class Ship(object):
         this.weapon.shoot(x,y,getDir(this.angle))
         
     def destroy(this):
+        print(len(Ship.lst))
         this.shape.destroy()
         this.engine.destroy()
         Ship.lst.remove(this)
@@ -285,7 +348,8 @@ def handle_message(message):
 @socketio.on('connect')
 def start():
     print('a user connected')
-    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
+    color = random.choice(['blue','green','white','yellow'])
+    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color)
     User(request.sid, s, View(s.x,s.y))
     join_room('main')
  
