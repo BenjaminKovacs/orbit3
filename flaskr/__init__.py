@@ -142,6 +142,7 @@ class Bullet(Circle):
         super().__init__(x,y,r,color)
         this.v = Point(vx,vy)
         this.mass = mass
+        this.timeShot = time.time()
         Bullet.lst.append(this)
         
     def move(this,dt):
@@ -284,7 +285,7 @@ class Ship(object):
         this.pos = this.pos.add(this.v.scale(dt))
         this.updatePolygon()
         for bullet in Bullet.lst:
-            if bullet.checkIntersect(this.shape):
+            if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
                 this.destroy()
                 bullet.destroy()
                 break
