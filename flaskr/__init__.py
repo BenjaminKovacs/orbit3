@@ -126,14 +126,31 @@ class Circle(object):
 class Planet(Circle):
     lst = []
     g = 100000;
-    def __init__(this,x,y,r,mass,color):
+    def __init__(this,x,y,vx,vy,r,mass,color):
         super().__init__(x,y,r,color)
+        this.v = Point(vx,vy)
         this.mass = mass
         Planet.lst.append(this)
+    
+    def move(this,dt):
+        print(this.pos.x,this.pos.y)
+        for planet in Planet.lst:
+            print(planet.x,planet.y)
+            if not planet.pos == this.pos:
+                this.v = this.v.add(planet.getA(this.pos).scale(dt))
+        this.pos = this.pos.add(this.v.scale(dt))
         
-    def getA(this,pos):
+    def getA(this, pos):
         r = this.pos.subtract(pos)
-        return r.direction().scale(Planet.g*this.mass/(r.magnitude()**2))
+        if r.magnitude != 0:
+            return r.direction().scale(Planet.g*this.mass/(r.magnitude()**2))
+        else:
+            return 0
+        
+    @staticmethod
+    def moveAll(dt):
+        for planet in Planet.lst:
+            planet.move(dt)
 
 class Bullet(Circle):
     lst = []
@@ -205,6 +222,9 @@ class Point(object):
     def getDict(this):
         return {'x':this.x,
                 'y':this.y}
+                
+    def __eq__(this,other):
+        return this.x == other.x and this.y == other.y
                 
 # https://stackoverflow.com/questions/3838329/how-can-i-check-if-two-segments-intersect
 def ccw(A,B,C):
@@ -297,6 +317,7 @@ class Ship(object):
         this.shape.y = this.pos.y
         
     def moveShip(this,dt):
+        print(this.pos.x,this.pos.y)
         this.angle -= this.turn
         this.shape.rotate(this.turn)
         this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
@@ -347,7 +368,8 @@ def hello():
 def index():
     return render_template('index.html')
 
-c = Planet(View.width//2,View.height//2,75,100,'red')
+c = Planet(View.width//2,View.height//2, 100, 0, 75,100,'red')
+c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 for i in range(10):
     for j in range(10):
         Circle(i*View.width/10,j*View.height/10, 10, 'yellow')
@@ -379,14 +401,14 @@ def handle_message(message):
 def start():
     print('a user connected')
     color = random.choice(['blue','green','white','yellow'])
-    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color,request.sid)
+    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid)
     User(request.sid, s, View(s.x,s.y))
     join_room('main')
 
 @socketio.on('start again')
 def restart():
     color = random.choice(['blue','green','white','yellow'])
-    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color,request.sid)
+    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid)
     User.userDict[request.sid].ship = s;
  
 @socketio.on('fire engine')
@@ -413,6 +435,7 @@ def tick():
         dt = t - prevTime
         Ship.moveAll(dt)
         Bullet.moveAll(dt)
+        Planet.moveAll(dt)
         socketio.emit('update', {'circles':Circle.getSend(),
                             'polygons':getSend(Polygon),
                             'rectangles':0}, namespace='/', broadcast=True)
