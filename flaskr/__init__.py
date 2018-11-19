@@ -348,6 +348,9 @@ def index():
     return render_template('index.html')
 
 c = Planet(View.width//2,View.height//2,75,100,'red')
+for i in range(10):
+    for j in range(10):
+        Circle(i*View.width/10,j*View.height/10, 10, 'yellow')
 global s
 #s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
 #Ship(View.width//2,View.height//2 + 200, 1, 170,0,'green')   
