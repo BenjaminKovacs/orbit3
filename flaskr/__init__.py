@@ -271,7 +271,7 @@ class Weapon(object):
     
 class Ship(object):
     lst = []
-    def __init__(this, x, y, mass, vx, vy, color):
+    def __init__(this, x, y, mass, vx, vy, color, id):
         this.x = x
         this.y = y
         this.pos = Point(x,y)
@@ -283,6 +283,7 @@ class Ship(object):
         this.shapePoints = [Point(-10,0),Point(0,30),Point(10,0)]
         this.shape = Polygon(x,y,this.shapePoints,color)
         
+        this.id = id
         this.angle = math.pi / 2
         this.turn = 0
         this.throttle = 0
@@ -324,6 +325,7 @@ class Ship(object):
         this.shape.destroy()
         this.engine.destroy()
         Ship.lst.remove(this)
+        socketio.emit('destroyed','stuff',room=this.id)
         
     @staticmethod
     def moveAll(dt):
@@ -374,9 +376,15 @@ def handle_message(message):
 def start():
     print('a user connected')
     color = random.choice(['blue','green','white','yellow'])
-    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color)
+    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color,request.sid)
     User(request.sid, s, View(s.x,s.y))
     join_room('main')
+
+@socketio.on('start again')
+def restart():
+    color = random.choice(['blue','green','white','yellow'])
+    s = Ship(View.width//2,View.height//2 - 200, 1,170,0,color,request.sid)
+    User.userDict[request.sid].ship = s;
  
 @socketio.on('fire engine')
 def updateMotion(value):

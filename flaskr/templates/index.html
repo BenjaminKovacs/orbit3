@@ -5,6 +5,33 @@ yay, it works!-->
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
 //socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
+var buttonList = [];
+class Button{
+    constructor(x,y,width,height,color,text,font,textColor, fun){
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color = color;
+        this.text = text;
+        this.font = font;
+        this.textColor = textColor;
+        this.fun = fun;
+        buttonList.push(this);
+    }
+    
+}
+
+function drawButton(button){
+        context.fillStyle = button.color;
+        context.fillRect(button.x-button.width/2,button.y-button.height/2,button.width,button.height);
+        context.fillStyle = button.textColor;
+        context.textAlign = "center";
+        context.font = button.font;
+        context.fillText(button.text,button.x,button.y);
+        console.log(button.text);
+    }
+
     var socket = io.connect('http://' + document.domain + ':' + location.port);
     var circles = [];
     var rectangles = [];
@@ -13,8 +40,8 @@ yay, it works!-->
     var scale;
     var view = {x:0,
                 y:0}
-
-    //record keys currently pressed, copied from capture the flag game I created
+    var destroyed = false
+    //reco;rd keys currently pressed, copied from capture the flag game I created
     keysPressed = [];
     for (i=0; i < 193; i++){keysPressed[i]=false;}
 
@@ -22,6 +49,13 @@ yay, it works!-->
     for (i=0; i < 193; i++){keysPressed[i]=false;}
     }
 
+
+    socket.on('destroyed',function(data){
+        destroyed = true;
+        var b = new Button(canvas.width/2,2*canvas.height/3,200,60,'green','Play again',
+            "30px Arial", 'white','newGame()');
+        console.log('destroyed');
+    });
 
     window.addEventListener('keydown', function (e) {
     for (i = 8; i < 193; i++){
@@ -39,7 +73,6 @@ yay, it works!-->
             socket.emit('fire engine',1);
         }
     if (e.keyCode == 40 || e.keyCode==83){
-        console.log('shooting');
         socket.emit('shoot');
         }
     });
@@ -80,7 +113,7 @@ yay, it works!-->
             canvas.width = width;
             canvas.height = width/whRatio;
         }
-        console.log('width'+canvas.width+' height'+canvas.height);
+        //console.log('width'+canvas.width+' height'+canvas.height);
         scale = canvas.width/1536;
         context = canvas.getContext('2d');
         context.fillStyle = 'black';
@@ -92,7 +125,7 @@ yay, it works!-->
     });
 
     socket.on('update', function(data){
-        console.log(data);
+        //console.log(data);
         thingsToDraw = JSON.parse(JSON.stringify(data));
         circles = thingsToDraw.circles;
         rectangles = thingsToDraw.rectangles;
@@ -107,6 +140,16 @@ yay, it works!-->
     window.addEventListener('mousedown', function (e) {
         console.log('x: '+e.clientX, 'y: '+e.clientY);
         console.log(window.innerWidth)
+        var count = 0;
+        while(count < buttonList.length){
+            var button = buttonList[count];
+            var xCond = (button.x-button.width/2 <= e.clientX) && (e.clientX <= button.x+button.width/2);
+            var yCond = (button.y-button.height/2 <= e.clientY) && (e.clientY <= button.y+button.height/2);
+            if (xCond && yCond){
+                eval(button.fun);
+            }
+            count++;
+        }
     })
 
     function drawCircles(){
@@ -120,7 +163,7 @@ yay, it works!-->
             var color = circles[count].color;
             context.fillStyle = color;
             context.ellipse(x, y, r, r, 0, 2 * Math.PI, false);
-            console.log('x'+x+'y'+y+'r'+r);
+           // console.log('x'+x+'y'+y+'r'+r);
             context.fill();
             count++;
             context.closePath();
@@ -153,13 +196,40 @@ yay, it works!-->
             count++;
         }
     }
-
+    function newGame(){
+        if (destroyed){
+            console.log('start a new game');
+            socket.emit('start again');
+            destroyed = false;
+            buttonList = [];
+        }
+    }
+    function drawButtons(){
+        var count = 0;
+        while(count<buttonList.length){
+            drawButton(buttonList[count]);
+            count++;
+        }
+    }
     function tick(){
-        context.fillStyle = 'black';
-        context.fillRect(0,0,canvas.width,canvas.height);
-        drawCircles();
-        drawRectangles();
-        drawPolygons();
+        if (!destroyed){
+            context.fillStyle = 'black';
+            context.fillRect(0,0,canvas.width,canvas.height);
+            drawCircles();
+            drawRectangles();
+            drawPolygons();
+        }
+        else{
+            context.fillStyle = 'black';
+            context.fillRect(0,0,canvas.width,canvas.height);
+            context.fillStyle = 'white';
+            //https://www.w3schools.com/graphics/canvas_text.asp
+            context.textAlign = "center";
+            context.font = "30px Arial";
+            context.fillText("You were destroyed",canvas.width/2,canvas.height/2);
+            drawButtons();
+            console.log(buttonList);
+        }
         //socket.emit('my event', {data: 'I\'m connected!'});
         window.requestAnimationFrame(tick);
     }
