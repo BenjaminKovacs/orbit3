@@ -372,7 +372,7 @@ def handle_message(message):
                         'rectangles':0})
     # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
     
-@socketio.on('connect')
+@socketio.on('first start')
 def start():
     print('a user connected')
     color = random.choice(['blue','green','white','yellow'])

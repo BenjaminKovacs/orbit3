@@ -6,6 +6,7 @@ yay, it works!-->
 <script type="text/javascript" charset="utf-8">
 //socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
 var buttonList = [];
+var start = true;
 class Button{
     constructor(x,y,width,height,color,text,font,textColor, fun){
         this.x = x;
@@ -72,7 +73,7 @@ function drawButton(button){
     if (e.keyCode == 38 || e.keyCode==87){
             socket.emit('fire engine',1);
         }
-    if (e.keyCode == 40 || e.keyCode==83){
+    if (e.keyCode == 40 || e.keyCode==83 || e.keyCode==32){
         socket.emit('shoot');
         }
     });
@@ -99,7 +100,6 @@ function drawButton(button){
     //down = keysPressed[40] || keysPressed[83];
 
     socket.on('connect', function() {
-        socket.emit('my event', {data: 'I\'m connected!'});
         var canvas = document.getElementById('canvas');
         var margin = 16; //remove scroll bars
         var width = window.innerWidth-margin;
@@ -118,6 +118,8 @@ function drawButton(button){
         context = canvas.getContext('2d');
         context.fillStyle = 'black';
         context.fillRect(0,0,canvas.width,canvas.height);
+        var b = new Button(canvas.width/2,2*canvas.height/3,200,60,'green','start game',
+            '30px Arial','white','startGame()');
         tick();
     });
     socket.on('test',function(message){
@@ -171,6 +173,12 @@ function drawButton(button){
         
     }
 
+    function startGame(){
+        socket.emit('first start');
+        start = false;
+        buttonList = [];
+    }
+
     function drawRectangles(){}
     //https://www.w3schools.com/tags/canvas_lineto.asp
     //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
@@ -212,7 +220,16 @@ function drawButton(button){
         }
     }
     function tick(){
-        if (!destroyed){
+        if (start){
+            context.fillStyle = 'black';
+            context.fillRect(0,0,canvas.width,canvas.height);
+            context.fillStyle = 'white';
+            context.textAlign = "center";
+            context.font = "30px Arial";
+            context.fillText("Use arrow keys to rotate and accelerate. Press space to shoot.",canvas.width/2,canvas.height/2);
+            drawButtons();
+        }
+        else if (!destroyed){
             context.fillStyle = 'black';
             context.fillRect(0,0,canvas.width,canvas.height);
             drawCircles();
