@@ -107,16 +107,16 @@ class Circle(object):
                     count += 1
 
             if count%2 == 1:
-                print(count)
-                print(a)
-                print(b)
-                print(c)
+                #print(count)
+                #print(a)
+                #print(b)
+                #print(c)
                 return True
             return False
     
     def destroy(this):
         Circle.lst.remove(this)
-        print('destroyed')
+        #print('destroyed')
                 
     @staticmethod
     def getSend():
@@ -133,9 +133,9 @@ class Planet(Circle):
         Planet.lst.append(this)
     
     def move(this,dt):
-        print(this.pos.x,this.pos.y)
+        #print(this.pos.x,this.pos.y)
         for planet in Planet.lst:
-            print(planet.x,planet.y)
+            #print(planet.x,planet.y)
             if not planet.pos == this.pos:
                 this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
@@ -177,7 +177,7 @@ class Bullet(Circle):
     def moveAll(dt):
         for bullet in Bullet.lst:
             bullet.move(dt)
-            print(time.time() - bullet.timeShot)
+            #print(time.time() - bullet.timeShot)
             if time.time() - bullet.timeShot > bullet.life:
                 bullet.destroy()
 
@@ -257,8 +257,8 @@ class Polygon(object):
         return result
             
     def getDict(this):
-        return {'x':this.x,
-                'y':this.y,
+        return {'x':this.pos.x,
+                'y':this.pos.y,
                 'points':this.getDictPoints(),
                 'color':this.color}
     
@@ -315,9 +315,10 @@ class Ship(object):
     def updatePolygon(this):
         this.shape.x = this.pos.x
         this.shape.y = this.pos.y
+        #print('pos',this.pos.x,this.pos.y)
         
     def moveShip(this,dt):
-        print(this.pos.x,this.pos.y)
+        #print(this.pos.x,this.pos.y)
         this.angle -= this.turn
         this.shape.rotate(this.turn)
         this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
@@ -332,9 +333,13 @@ class Ship(object):
                 break
         for planet in Planet.lst:
             if planet.checkIntersect(this.shape):
-                print('yay')
+                #print('yay')
                 this.destroy()
                 break
+        maxDist = 1 * View.width
+        planetVector = Planet.lst[0].pos.subtract(this.pos)
+        if planetVector.magnitude() > maxDist:
+            this.v = planetVector.scale(.1)
     
     def shoot(this):
         x = this.pos.x + this.shape.points[1].x
@@ -342,7 +347,7 @@ class Ship(object):
         this.weapon.shoot(x,y,this.v.x,this.v.y,getDir(this.angle))
         
     def destroy(this):
-        print(len(Ship.lst))
+        #print(len(Ship.lst))
         this.shape.destroy()
         this.engine.destroy()
         Ship.lst.remove(this)
@@ -368,8 +373,8 @@ def hello():
 def index():
     return render_template('index.html')
 
-c = Planet(View.width//2,View.height//2, 100, 0, 75,100,'red')
-c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
+c = Planet(View.width//2,View.height//2, 0, 0, 75,100,'red')
+#c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 for i in range(10):
     for j in range(10):
         Circle(i*View.width/10,j*View.height/10, 10, 'yellow')
@@ -382,7 +387,7 @@ def handle_message(message):
     global room
     room = 'main'
     global prevTime
-    print('received message: ' + str(message))
+    #print('received message: ' + str(message))
     print('going to send a message now')
     t = time.time()
     dt = t - prevTime
@@ -415,13 +420,13 @@ def restart():
 def updateMotion(value):
     value = min(value,1)
     User.userDict[request.sid].ship.throttle = value*100
-    print('accelerating')
+    #print('accelerating')
     
 @socketio.on('rotate')
 def rotate(value):
     value = max(min(value,1),-1)
     User.userDict[request.sid].ship.turn = value*.1
-    print('turning')
+    #print('turning')
 
 @socketio.on('shoot')
 def fire():
