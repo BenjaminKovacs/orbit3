@@ -30,7 +30,6 @@ function drawButton(button){
         context.textAlign = "center";
         context.font = button.font;
         context.fillText(button.text,button.x,button.y);
-        //console.log(button.text);
     }
 
     var socket = io.connect('http://' + document.domain + ':' + location.port);
@@ -44,7 +43,7 @@ function drawButton(button){
     var destroyed = false
     var mapZoom = 1/1000;
     var maxDist = 2;
-    //reco;rd keys currently pressed, copied from capture the flag game I created
+    //record keys currently pressed, copied from capture the flag game I created
     keysPressed = [];
     for (i=0; i < 193; i++){keysPressed[i]=false;}
 
@@ -115,7 +114,6 @@ function drawButton(button){
             canvas.width = width;
             canvas.height = width/whRatio;
         }
-        //console.log('width'+canvas.width+' height'+canvas.height);
         scale = canvas.width/1536;
         context = canvas.getContext('2d');
         context.fillStyle = 'black';
@@ -124,12 +122,8 @@ function drawButton(button){
             '30px Arial','white','startGame()');
         tick();
     });
-    socket.on('test',function(message){
-        //document.getElementById('test').innerHTML = message;
-    });
 
     socket.on('update', function(data){
-        //console.log(data);
         thingsToDraw = JSON.parse(JSON.stringify(data));
         circles = thingsToDraw.circles;
         rectangles = thingsToDraw.rectangles;
@@ -142,8 +136,6 @@ function drawButton(button){
     });
 
     window.addEventListener('mousedown', function (e) {
-        //console.log('x: '+e.clientX, 'y: '+e.clientY);
-        //console.log(window.innerWidth)
         var count = 0;
         while(count < buttonList.length){
             var button = buttonList[count];
@@ -179,7 +171,6 @@ function sign(x){
             var color = circles[count].color;
             context.fillStyle = color;
             context.ellipse(p.x, p.y, r, r, 0, 2 * Math.PI, false);
-           // console.log('x'+x+'y'+y+'r'+r);
             context.fill();
             count++;
             context.closePath();
@@ -192,26 +183,6 @@ function sign(x){
         start = false;
         buttonList = [];
     }
-
-function average(lst){
-    //https://stackoverflow.com/questions/29544371/finding-the-average-of-an-array-using-js
-    var total = 0;
-    for(var i = 0; i < lst.length; i++) {
-        total += lst[i];
-    }
-    var avg = total / lst.length;
-    return avg;
-}
-
-function averageObj(lst, comp){
-    //https://stackoverflow.com/questions/29544371/finding-the-average-of-an-array-using-js
-    var total = 0;
-    for(var i = 0; i < lst.length; i++) {
-        total += eval('lst[i].'+comp);
-    }
-    var avg = total / lst.length;
-    return avg;
-}
 
 function zoomF(point, zoom){
     console.log('zoom: '+zoom);
@@ -233,56 +204,29 @@ function scaleDist(point, distFn){
 
 function adjustPoint(point,cx,cy,viewX,viewY,zoom){
     var newPoint = {};
-    //console.log('zoom: '+zoom);
-    //console.log('input: '+point+' x: '+point.x+' y: '+point.y);
     newPoint = shift(point,viewX,viewY);
-    
-   // console.log('shifted: '+point+' x: '+point.x+' y: '+point.y);
-   newPoint = zoomF(newPoint, zoom);
-   
-   // console.log('zoomed: '+point+' x: '+point.x+' y: '+point.y);
-   newPoint.x += cx;
-   newPoint.y += cy;
-   // console.log('final: '+point+' x: '+point.x+' y: '+point.y);
+    newPoint = zoomF(newPoint, zoom);
+    newPoint.x += cx;
+    newPoint.y += cy;
     return newPoint;
 }
-
-function testObj(pt,x,y){
-    console.log(pt);
-    console.log('pt.x: '+pt.x+' pt.y: '+pt.y);
-    console.log('x: '+x+' y: '+y);
-    pt.x += 1000;
-    pt.y += 1000;
-    return pt;
-}
-
     function drawRectangles(){}
     //https://www.w3schools.com/tags/canvas_lineto.asp
     //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
     function drawPolygons(zoom, cx, cy, viewX, viewY, distFn){
-        //console.log('zoom: '+zoom);
         var count = 0;
         while (count < polygons.length){
             polygon = polygons[count];
-            //console.log(polygon.points[0].x);
             context.fillStyle = polygon.color;
             context.beginPath();
             var pt = polygon.points[0];
             var p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
-           // console.log(p);
             context.moveTo(p.x, p.y);
             var pointNum = 1;
             while(pointNum < polygon.points.length){
-                //console.log('x: '+p.x+' y: '+p.y);
-          pt = polygon.points[pointNum];
-            //    console.log('original function x: '+pt.x+' y: '+pt.y+'pt: '+pt);
-            //    var r = testObj(pt, pt.x, pt.y);
-           //     console.log('function returned: '+r+' x: '+r.x+' y: '+r.y);
-            //    console.log('original pt: '+pt+' x: '+pt.x+' y: '+pt.y);
-              //  console.log(polygon.points[pointNum]);
-              //  console.log(pt);
+                pt = polygon.points[pointNum];
                 p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
-               context.lineTo(p.x,p.y);
+                context.lineTo(p.x,p.y);
                 pointNum++;
             }
             context.fill();
@@ -354,9 +298,7 @@ function drawAll(size,x,y,viewX,viewY,distFn){
             context.font = "30px Arial";
             context.fillText("You were destroyed",canvas.width/2,canvas.height/2);
             drawButtons();
-            //console.log(buttonList);
         }
-        //socket.emit('my event', {data: 'I\'m connected!'});
         window.requestAnimationFrame(tick);
     }
 </script>
