@@ -26,6 +26,7 @@ class User(object):
         this.id = id
         this.ship = ship
         this.view = view
+        this.score = 0
         User.userDict[id] = this
         
     def destroy(this):
@@ -153,12 +154,13 @@ class Planet(Circle):
 
 class Bullet(Circle):
     lst = []
-    def __init__(this,x,y,vx,vy,r,mass,color):
+    def __init__(this,x,y,vx,vy,r,mass,color,id):
         super().__init__(x,y,r,color)
         this.v = Point(vx,vy)
         this.mass = mass
         this.timeShot = time.time()
         this.life = 10
+        this.id = id
         Bullet.lst.append(this)
         
     def move(this,dt):
@@ -296,15 +298,16 @@ class Engine(object):
         pass
 
 class Weapon(object):
-    def __init__(this, bmass, bspeed, bcolor, br):
+    def __init__(this, bmass, bspeed, bcolor, br, id):
         this.bmass = bmass
         this.bspeed = bspeed
         this.bcolor = bcolor
         this.br = br
+        this.id = id
         
     def shoot(this, x,y, svx,svy, direction):
         v = direction.scale(this.bspeed)
-        Bullet(x,y, v.x+svx,v.y+svy,this.br,this.bmass,this.bcolor)
+        Bullet(x,y, v.x+svx,v.y+svy,this.br,this.bmass,this.bcolor, this.id)
  
 class View(object):
     width = 1536
@@ -339,7 +342,7 @@ class Ship(object):
         this.turn = 0
         this.throttle = 0
         this.engine = Engine(1)
-        this.weapon = Weapon(1, 200, 'orange', 2)
+        this.weapon = Weapon(1, 200, 'orange', 2, id)
         
         Ship.lst.append(this)
         
@@ -358,6 +361,7 @@ class Ship(object):
         for bullet in Bullet.lst:
             if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
                 this.destroy()
+                User.userDict[bullet.id].score += 1
                 bullet.destroy()
                 break
         for planet in Planet.lst:
@@ -442,6 +446,7 @@ def restart():
     color = random.choice(['blue','green','white','yellow'])
     s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid)
     User.userDict[request.sid].ship = s;
+    User.userDict[request.sid].score = 0;
  
 @socketio.on('fire engine')
 def updateMotion(value):
@@ -474,6 +479,7 @@ def tick():
         prevTime = t
         for user in User.userDict.keys():
             socketio.emit('view',User.userDict[user].ship.pos.getDict(),room=User.userDict[user].id)
+            socketio.emit('score',User.userDict[user].score,room=User.userDict[user].id)
         eventlet.sleep(.01)
 
 #thread = threading.Thread(target=tick)

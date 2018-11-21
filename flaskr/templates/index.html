@@ -7,6 +7,7 @@ yay, it works!-->
 //socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
 var buttonList = [];
 var start = true;
+var score  = 0;
 class Button{
     constructor(x,y,width,height,color,text,font,textColor, fun){
         this.x = x;
@@ -133,6 +134,10 @@ function drawButton(button){
     socket.on('view', function(data){
         view = JSON.parse(JSON.stringify(data));
         adjust = 1/(2*Math.sqrt(Math.pow((circles[0].x - view.x),2)+Math.pow((circles[0].y - view.y),2)))
+    });
+
+    socket.on('score',function(data){
+        score = JSON.parse(JSON.stringify(data));
     });
 
     window.addEventListener('mousedown', function (e) {
@@ -348,6 +353,10 @@ function drawAll(size,x,y,viewX,viewY,distFn){
             drawAll(1, 0,0, view.x, view.y,'');
             var s = 5; 
             miniMap((2*s/maxDist-1)*canvas.width/(2*s/maxDist), (2*s/maxDist-1)*canvas.height/(2*s/maxDist),'blue',5,1/s);
+            context.fillStyle = 'white';
+            context.textAlign = "left";
+            context.font = "30px Arial";
+            context.fillText("Destroyed: "+score,30,50);
         }
         else{
             context.fillStyle = 'black';
