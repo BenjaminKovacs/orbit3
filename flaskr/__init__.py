@@ -33,19 +33,14 @@ class User(object):
         this.view.destroy()
         del User.userDict[this.id]
 
-class View(object):
-    width = 1536
-    height = 754
-    def __init__(this, x, y):
-        this.x = x
-        this.y = y
-    def getDict(this):
-        return {'x':this.x,
-                'y':this.y,
-                }
-    def destroy(this):
-        pass
-
+def getMini(shape):
+    mini = shape.pos.subtract(View.center)
+    if mini.magnitude() != 0:
+        mini = mini.direction().scale(100*math.log(mini.magnitude()))
+    mini = mini.add(View.center)
+    #mini = mini.getDict()
+    return mini
+        
 class Circle(object):
     lst = []
     circleSend = []
@@ -62,11 +57,15 @@ class Circle(object):
         return (this.x,this.y,this.r,this.color)
 
     def getDict(this):
+        mini = getMini(this)
+        mini = mini.getDict()
         return {'x':this.pos.x,
                 'y':this.pos.y,
                 'r':this.r,
-                'color':this.color}
+                'color':this.color,
+                'mini':mini}
     #https://brilliant.org/wiki/dot-product-distance-between-point-and-a-line/
+    #https://gamedev.stackexchange.com/questions/7735/how-do-i-test-if-a-circle-and-concave-polygon-intersect
     def checkIntersect(this, other):
         if isinstance(other, Circle):
             return this.pos.distance(other.pos) < (this.r+other.r)
@@ -199,6 +198,8 @@ class Point(object):
         return (this.x**2+this.y**2)**.5
         
     def direction(this):
+        if this.magnitude() == 0:
+            return Point(0,0)
         return this.scale(1/this.magnitude())
     
     def getAngle(this):
@@ -234,6 +235,12 @@ def ccw(A,B,C):
 def intersect(A,B,C,D):
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
 
+def getDictPointsMini(points):
+    result = []
+    for point in points:
+        result.append(point.getDict())
+    return result
+
 class Polygon(object):
     lst = []
     def __init__(this,x,y,points,color):
@@ -243,12 +250,16 @@ class Polygon(object):
         this.points = points
         this.color = color
         Polygon.lst.append(this)
-        
-    def getDrawPoints(this):
+    
+    def getDrawPointsC(this,pt):
         result = []
         for point in this.points:
-            result.append(Point(point.x+this.x,point.y+this.y))
+            result.append(Point(point.x+pt.x,point.y+pt.y))
         return result
+        
+    def getDrawPoints(this):
+        return this.getDrawPointsC(this)
+    
             
     def getDictPoints(this):
         result = []
@@ -257,10 +268,16 @@ class Polygon(object):
         return result
             
     def getDict(this):
+        this.pos.x = this.x
+        this.pos.y = this.y
+        mini = getMini(this)
+        mini.points = this.getDrawPointsC(mini)
+        mini.points = getDictPointsMini(mini.points)
         return {'x':this.pos.x,
                 'y':this.pos.y,
                 'points':this.getDictPoints(),
-                'color':this.color}
+                'color':this.color,
+                'mini':mini.points}
     
     def rotate(this,angle):
         for point in this.points:
@@ -288,6 +305,20 @@ class Weapon(object):
     def shoot(this, x,y, svx,svy, direction):
         v = direction.scale(this.bspeed)
         Bullet(x,y, v.x+svx,v.y+svy,this.br,this.bmass,this.bcolor)
+ 
+class View(object):
+    width = 1536
+    height = 754
+    center = Point(width/2,height/2)
+    def __init__(this, x, y):
+        this.x = x
+        this.y = y
+    def getDict(this):
+        return {'x':this.x,
+                'y':this.y,
+                }
+    def destroy(this):
+        pass
     
 class Ship(object):
     lst = []
@@ -315,10 +346,8 @@ class Ship(object):
     def updatePolygon(this):
         this.shape.x = this.pos.x
         this.shape.y = this.pos.y
-        #print('pos',this.pos.x,this.pos.y)
         
     def moveShip(this,dt):
-        #print(this.pos.x,this.pos.y)
         this.angle -= this.turn
         this.shape.rotate(this.turn)
         this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
@@ -333,7 +362,6 @@ class Ship(object):
                 break
         for planet in Planet.lst:
             if planet.checkIntersect(this.shape):
-                #print('yay')
                 this.destroy()
                 break
         maxDist = 1 * View.width
@@ -347,7 +375,6 @@ class Ship(object):
         this.weapon.shoot(x,y,this.v.x,this.v.y,getDir(this.angle))
         
     def destroy(this):
-        #print(len(Ship.lst))
         this.shape.destroy()
         this.engine.destroy()
         Ship.lst.remove(this)

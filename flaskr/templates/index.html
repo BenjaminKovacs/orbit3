@@ -152,14 +152,25 @@ function sign(x){
     return x/Math.abs(x);
 }
 
+function mag(pt){
+    return Math.sqrt(Math.pow(pt.x,2)+Math.pow(pt.y,2));
+}
+
     function drawCircles(zoom, cx, cy, viewX, viewY, distFn){
         
         var count = 0;
         while (count<circles.length){
             context.beginPath();
             pt = circles[count];
+            if(pt.r >10){
+                console.log('x: '+pt.x+' y: '+pt.y);
+            }
+            if(distFn != ''){
+                pt = pt.mini;
+            }
             var p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
             var r = circles[count].r * scale;
+            
             //console.log('x: '+x+' y: '+y);
            // console.log(Math.log(x));
        // console.log(Math.log(y));
@@ -185,7 +196,6 @@ function sign(x){
     }
 
 function zoomF(point, zoom){
-    console.log('zoom: '+zoom);
     point.x *=zoom;
     point.y *= zoom;
     return point;
@@ -197,9 +207,30 @@ function shift(point,viewX,viewY){
     return newPoint;
 }
 function scaleDist(point, distFn){
-    point.x = eval(distFn+'('+point.x+')');
-    point.y = eval(distFn+'('+point.y+')');
-    return point;
+    var newPoint = {};
+   // console.log('scaleDist start x: '+point.x+' y: '+point.y);
+   if (point.x != 0){
+     newPoint.x = sign(point.x) * eval(distFn+'('+Math.abs(point.x)+')');
+   }
+   else{newPoint.x=0;}
+   // console.log(distFn+'('+Math.abs(point.x)+')');
+   // console.log('scaleDist change x x: '+npoint.x+' y: '+point.y);
+   if (point.y != 0){
+    newPoint.y = sign(point.y) * eval(distFn+'('+Math.abs(point.y)+')');
+    }
+    else{newPoint.y=0;}
+   // console.log('scaleDist change y x: '+point.x+' y: '+point.y);
+    return newPoint;
+}
+
+function adjustAndScalePoint(point,cx,cy,viewX,viewY,zoom,distFn){
+    var newPoint = {};
+    newPoint = shift(point,viewX,viewY);
+    newPoint = scaleDist(newPoint,distFn);
+    newPoint = zoomF(newPoint, zoom);
+    newPoint.x += cx;
+    newPoint.y += cy;
+    return newPoint;
 }
 
 function adjustPoint(point,cx,cy,viewX,viewY,zoom){
@@ -210,6 +241,20 @@ function adjustPoint(point,cx,cy,viewX,viewY,zoom){
     newPoint.y += cy;
     return newPoint;
 }
+
+function scalePolygon(pt, polygon, distFn){
+    newPoint = {};
+    newPoint.x = pt.x ;//- polygon.x;
+    newPoint.y = pt.y ;//- polygon.y;
+    console.log('new x: '+newPoint.x+' y: '+newPoint.y);
+    newPoint = scaleDist(newPoint, distFn);
+    console.log('scaleDist x: '+newPoint.x+' y: '+newPoint.y);
+   // newPoint.x += polygon.x;
+  //  newPoint.y += polygon.y;
+    console.log('final x: '+newPoint.x+' y: '+newPoint.y);
+    return newPoint;
+}
+
     function drawRectangles(){}
     //https://www.w3schools.com/tags/canvas_lineto.asp
     //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
@@ -220,13 +265,28 @@ function adjustPoint(point,cx,cy,viewX,viewY,zoom){
             context.fillStyle = polygon.color;
             context.beginPath();
             var pt = polygon.points[0];
+            if(distFn != ''){
+                pt = polygon.mini[0];
+            }
+            //pt = scalePolygon(pt,polygon,distFn);
             var p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
+            //var poly = adjustPoint(polygon,cx,cy,viewX,viewY,zoom);
+            //p = scalePolygon(p,poly,distFn);
             context.moveTo(p.x, p.y);
             var pointNum = 1;
             while(pointNum < polygon.points.length){
                 pt = polygon.points[pointNum];
+                if(distFn != ''){
+                pt = polygon.mini[pointNum];
+                }
+             //   console.log('x: '+pt.x+' y: '+pt.y);
+               // pt = scalePolygon(pt,polygon,distFn);
+             //   console.log('x: '+pt.x+' y: '+pt.y);
                 p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
+               // var poly = adjustPoint(polygon,cx,cy,viewX,viewY,zoom);
+               // p = scalePolygon(p,poly,distFn);
                 context.lineTo(p.x,p.y);
+                console.log('drawn x: '+p.x+' y: '+p.y);
                 pointNum++;
             }
             context.fill();
@@ -253,8 +313,8 @@ function adjustPoint(point,cx,cy,viewX,viewY,zoom){
 
     function miniMap(x,y,borderColor,borderWidth, size){
         context.fillStyle = borderColor;
-        var w = canvas.width*size*(maxDist);//+1);
-        var h = canvas.height*size*(maxDist);//+1);
+        var w = canvas.width*size;//*(maxDist);//+1);
+        var h = canvas.height*size;//*(maxDist);//+1);
         var a = 1/2;
         /*
         context.fillRect(x-a*w-borderWidth/2,y-a*h-borderWidth/2,
@@ -263,7 +323,7 @@ function adjustPoint(point,cx,cy,viewX,viewY,zoom){
         context.fillRect(x-a*w,y-a*h,
             w,h);
         */
-        drawAll(size,x,y,canvas.width/2,canvas.height/2, '100*Math.log'); //100*Math.log
+        drawAll(size,x,y,1536,754, '100*Math.log'); //100*Math.log
     }
 
 function drawAll(size,x,y,viewX,viewY,distFn){
