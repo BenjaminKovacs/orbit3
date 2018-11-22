@@ -37,7 +37,7 @@ class User(object):
 def getMini(shape):
     mini = shape.pos.subtract(View.center)
     if mini.magnitude() != 0:
-        mini = mini.direction().scale(100*math.log(mini.magnitude()))
+        mini = mini.direction().scale(100*math.log(mini.magnitude()))#(1/100 * mini.magnitude()*math.log(mini.magnitude())**2)
     mini = mini.add(View.center)
     #mini = mini.getDict()
     return mini
@@ -125,20 +125,19 @@ class Circle(object):
         
 class Planet(Circle):
     lst = []
-    g = 10;
-    def __init__(this,x,y,vx,vy,r,mass,color,frozen=False):
+    g = 20;
+    def __init__(this,x,y,vx,vy,r,mass,color,bodyOfInfluence,frozen=False):
         super().__init__(x,y,r,color)
         this.v = Point(vx,vy)
+        this.bodyOfInfluence = bodyOfInfluence
         this.mass = mass
         this.frozen = frozen
         Planet.lst.append(this)
     
     def move(this,dt):
         #print(this.pos.x,this.pos.y)
-        for planet in Planet.lst:
-            #print(planet.x,planet.y)
-            if not planet.pos == this.pos and not this.frozen:
-                this.v = this.v.add(planet.getA(this.pos).scale(dt))
+        if not this.frozen:
+            this.v = this.v.add(this.bodyOfInfluence.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
         
     def getA(this, pos):
@@ -369,7 +368,7 @@ class Ship(object):
             if planet.checkIntersect(this.shape):
                 this.destroy()
                 break
-        maxDist = 1 * View.width
+        maxDist = 2 * View.width
         planetVector = Planet.lst[0].pos.subtract(this.pos)
         if planetVector.magnitude() > maxDist:
             this.v = planetVector.scale(.1)
@@ -405,14 +404,15 @@ def hello():
 def index():
     return render_template('index.html')
 global star
-star = Planet(View.width//2,View.height//2, 0, 0, 75,1000000,'red',True)
+star = Planet(View.width//2,View.height//2, 0, 0, 75,1000000,'red',None,True)
 def spawnPlanets():
     global star
-    for i in range(1):
-        d = random.randint(star.r,View.width/2)
+    for i in range(1,11):
+        #d = random.randint(star.r,View.width/2)
+        d = star.r + i * 1/2 * View.width/2
         v = (Planet.g*star.mass/d)**.5
         dist = 2*(i%2)-1
-        Planet(star.x,star.y-d*dist,v,0,50,500000,'green')
+        Planet(star.x,star.y+d,v,0,50,500000,'green',star)
 spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 for i in range(10):
