@@ -142,7 +142,7 @@ class Planet(Circle):
         
     def getA(this, pos):
         r = this.pos.subtract(pos)
-        if r.magnitude != 0:
+        if r.magnitude() != 0:
             return r.direction().scale(Planet.g*this.mass/(r.magnitude()**2))
         else:
             return 0
@@ -312,6 +312,7 @@ class Weapon(object):
 class View(object):
     width = 1536
     height = 754
+    maxDist = 2 * width
     center = Point(width/2,height/2)
     def __init__(this, x, y):
         this.x = x
@@ -368,9 +369,8 @@ class Ship(object):
             if planet.checkIntersect(this.shape):
                 this.destroy()
                 break
-        maxDist = 2 * View.width
         planetVector = Planet.lst[0].pos.subtract(this.pos)
-        if planetVector.magnitude() > maxDist:
+        if planetVector.magnitude() > View.maxDist:
             this.v = planetVector.scale(.1)
     
     def shoot(this):
@@ -407,17 +407,20 @@ global star
 star = Planet(View.width//2,View.height//2, 0, 0, 75,1000000,'red',None,True)
 def spawnPlanets():
     global star
-    for i in range(1,11):
+    for i in range(1,5):
         #d = random.randint(star.r,View.width/2)
-        d = star.r + i * 1/2 * View.width/2
+        d = star.r + 2**i * 1/10 * View.width/2
         v = (Planet.g*star.mass/d)**.5
         dist = 2*(i%2)-1
         Planet(star.x,star.y+d,v,0,50,500000,'green',star)
 spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
-for i in range(10):
-    for j in range(10):
-        Circle(i*View.width/10,j*View.height/10, 10, 'yellow')
+for i in range(-100,100):
+    for j in range(-100,100):
+        x = i*View.width/5
+        y = j*View.height/5
+        if Point(x,y).subtract(star.pos).magnitude() < View.maxDist: 
+            Circle(x,y, 10, 'yellow')
 global s
 #s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
 #Ship(View.width//2,View.height//2 + 200, 1, 170,0,'green')   
