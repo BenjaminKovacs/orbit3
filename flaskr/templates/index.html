@@ -44,6 +44,7 @@ function drawButton(button){
     var destroyed = false
     var mapZoom = 1/1000;
     var maxDist = 2;
+    var worldRadius = 20 * canvas.width;
     //record keys currently pressed, copied from capture the flag game I created
     keysPressed = [];
     for (i=0; i < 193; i++){keysPressed[i]=false;}
@@ -100,7 +101,9 @@ function drawButton(button){
     //right = keysPressed[39] || keysPressed[68];
     //up = keysPressed[38] || keysPressed[87];
     //down = keysPressed[40] || keysPressed[83];
-
+var background;
+var vWidth = 1536;
+var vHeight = 754;
     socket.on('connect', function() {
         var canvas = document.getElementById('canvas');
         var margin = 16; //remove scroll bars
@@ -121,7 +124,18 @@ function drawButton(button){
         context.fillRect(0,0,canvas.width,canvas.height);
         var b = new Button(canvas.width/2,2*canvas.height/3,200,60,'green','start game',
             '30px Arial','white','startGame()');
-        tick();
+
+        //https://www.w3schools.com/tags/canvas_drawimage.asp
+        //https://stackoverflow.com/questions/4276048/html5-canvas-fill-circle-with-image
+        //load image
+        //image from https://insider.si.edu/wp-content/uploads/2015/08/M43_beletsky.jpg
+        background = new Image();
+        background.addEventListener('load',function(e){
+            tick();
+        }, true);
+        background.src = 'https://insider.si.edu/wp-content/uploads/2015/08/M43_beletsky.jpg'
+
+        
     });
 
     socket.on('update', function(data){
@@ -337,10 +351,39 @@ function drawAll(size,x,y,viewX,viewY,distFn){
     drawPolygons(size, x,y, viewX, viewY,distFn);
 }
 
+function drawBackground(){
+    //https://stackoverflow.com/questions/4276048/html5-canvas-fill-circle-with-image
+    context.save();
+    context.beginPath();
+    var ww = 2*canvas.width;
+    context.arc(canvas.width-view.x, canvas.height-view.y, ww, 0, Math.PI * 2, true);
+    context.closePath();
+    context.clip();
+
+    // https://stackoverflow.com/questions/5633264/javascript-get-image-dimensions
+    var w = background.width;
+    var h = background.height;
+    var fx = w/worldRadius;
+    var fy = h/worldRadius;
+    //image,cropx,cropy,cropwidth,cropheight,x,y,width,height
+    context.drawImage(background,
+                    w/2+(view.x-vWidth)*fx,h/2+(view.y-vHeight)*fy, //-vHeight
+                    vWidth*fx,vHeight*fy,
+                    0,0,canvas.width,canvas.height);
+    //drawBackground(view.x,view.y);
+    //*w/worldRadius
+    //*h/worldRadius
+
+    context.beginPath();
+    context.arc(ww/2-view.x, ww/2-view.y, ww, 0, Math.PI * 2, true);
+    context.clip();
+    context.closePath();
+    context.restore();
+}
+
     function tick(){
         if (start){
-            context.fillStyle = 'black';
-            context.fillRect(0,0,canvas.width,canvas.height);
+            context.drawImage(background,0,0);
             context.fillStyle = 'white';
             context.textAlign = "center";
             context.font = "30px Arial";
@@ -350,6 +393,7 @@ function drawAll(size,x,y,viewX,viewY,distFn){
         else if (!destroyed){
             context.fillStyle = 'black';
             context.fillRect(0,0,canvas.width,canvas.height);
+            drawBackground();
             drawAll(1, 0,0, view.x, view.y,'');
             var s = 5; 
             miniMap((2*s/maxDist-1)*canvas.width/(2*s/maxDist), (2*s/maxDist-1)*canvas.height/(2*s/maxDist),'blue',5,1/s);
@@ -359,8 +403,7 @@ function drawAll(size,x,y,viewX,viewY,distFn){
             context.fillText("Destroyed: "+score,30,50);
         }
         else{
-            context.fillStyle = 'black';
-            context.fillRect(0,0,canvas.width,canvas.height);
+            context.drawImage(background,0,0);
             context.fillStyle = 'white';
             //https://www.w3schools.com/graphics/canvas_text.asp
             context.textAlign = "center";
