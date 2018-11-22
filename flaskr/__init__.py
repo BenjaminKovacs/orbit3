@@ -125,18 +125,19 @@ class Circle(object):
         
 class Planet(Circle):
     lst = []
-    g = 100000;
-    def __init__(this,x,y,vx,vy,r,mass,color):
+    g = 10;
+    def __init__(this,x,y,vx,vy,r,mass,color,frozen=False):
         super().__init__(x,y,r,color)
         this.v = Point(vx,vy)
         this.mass = mass
+        this.frozen = frozen
         Planet.lst.append(this)
     
     def move(this,dt):
         #print(this.pos.x,this.pos.y)
         for planet in Planet.lst:
             #print(planet.x,planet.y)
-            if not planet.pos == this.pos:
+            if not planet.pos == this.pos and not this.frozen:
                 this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
         
@@ -403,8 +404,16 @@ def hello():
 @app.route('/')
 def index():
     return render_template('index.html')
-
-c = Planet(View.width//2,View.height//2, 0, 0, 75,100,'red')
+global star
+star = Planet(View.width//2,View.height//2, 0, 0, 75,1000000,'red',True)
+def spawnPlanets():
+    global star
+    for i in range(1):
+        d = random.randint(star.r,View.width/2)
+        v = (Planet.g*star.mass/d)**.5
+        dist = 2*(i%2)-1
+        Planet(star.x,star.y-d*dist,v,0,50,500000,'green')
+spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 for i in range(10):
     for j in range(10):
