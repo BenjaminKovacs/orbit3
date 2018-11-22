@@ -37,7 +37,9 @@ class User(object):
 def getMini(shape):
     mini = shape.pos.subtract(View.center)
     if mini.magnitude() != 0:
-        mini = mini.direction().scale(100*math.log(mini.magnitude()))#(1/100 * mini.magnitude()*math.log(mini.magnitude())**2)
+        mini = mini.direction().scale(1/5 * mini.magnitude())
+        #(100*math.log(mini.magnitude()))
+        #(1/100 * mini.magnitude()*math.log(mini.magnitude())**2)
     mini = mini.add(View.center)
     #mini = mini.getDict()
     return mini
