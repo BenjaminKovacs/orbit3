@@ -342,6 +342,12 @@ function scalePolygon(pt, polygon, distFn){
         context.fillRect(x-a*w,y-a*h,
             w,h);
         */
+        context.beginPath()
+        context.fillStyle = 'black';
+        var f = 2/25;
+        context.ellipse(x,y, f*canvas.width,f*canvas.width,0, 2 * Math.PI, false);
+        context.fill();
+        context.closePath();
         drawAll(size,x,y,1536,754, '100*Math.log'); //100*Math.log
     }
 

@@ -407,14 +407,15 @@ def index():
     return render_template('index.html')
 
 sx = View.width//2
-sy = View.height//2    
+sy = View.height//2   
+''' 
 for i in range(-100,100):
     for j in range(-100,100):
         x = i*View.width/5
         y = j*View.height/5
         if Point(x,y).subtract(Point(sx,sy)).magnitude() < View.maxDist: 
             Circle(x,y, 10, 'yellow')
-
+'''
 global star
 star = Planet(sx,sy, 0, 0, 75,1000000,'red',None,True)
 def spawnPlanets():
