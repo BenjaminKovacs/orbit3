@@ -425,7 +425,7 @@ def spawnPlanets():
         d = star.r + i * 1/2 * View.width/2
         v = (Planet.g*star.mass/d)**.5
         dist = 2*(i%2)-1
-        Planet(star.x,star.y+d,v,0,50,500000,'green',star)
+        Planet(star.x,star.y+d,v,0,50,100000,'green',star)
 spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 
@@ -471,7 +471,7 @@ def restart():
 @socketio.on('fire engine')
 def updateMotion(value):
     value = min(value,1)
-    User.userDict[request.sid].ship.throttle = value*100
+    User.userDict[request.sid].ship.throttle = value*10
     #print('accelerating')
     
 @socketio.on('rotate')
