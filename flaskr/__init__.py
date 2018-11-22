@@ -405,8 +405,18 @@ def hello():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+sx = View.width//2
+sy = View.height//2    
+for i in range(-100,100):
+    for j in range(-100,100):
+        x = i*View.width/5
+        y = j*View.height/5
+        if Point(x,y).subtract(Point(sx,sy)).magnitude() < View.maxDist: 
+            Circle(x,y, 10, 'yellow')
+
 global star
-star = Planet(View.width//2,View.height//2, 0, 0, 75,1000000,'red',None,True)
+star = Planet(sx,sy, 0, 0, 75,1000000,'red',None,True)
 def spawnPlanets():
     global star
     for i in range(1,5):
@@ -417,12 +427,7 @@ def spawnPlanets():
         Planet(star.x,star.y+d,v,0,50,500000,'green',star)
 spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
-for i in range(-100,100):
-    for j in range(-100,100):
-        x = i*View.width/5
-        y = j*View.height/5
-        if Point(x,y).subtract(star.pos).magnitude() < View.maxDist: 
-            Circle(x,y, 10, 'yellow')
+
 global s
 #s = Ship(View.width//2,View.height//2 - 200, 1,170,0,'blue')
 #Ship(View.width//2,View.height//2 + 200, 1, 170,0,'green')   
