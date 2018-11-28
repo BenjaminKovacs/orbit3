@@ -160,6 +160,28 @@ class Circle(object):
     def getSend():
         Circle.circleSend = getSend(Circle)
         return Circle.circleSend
+
+class Rectangle(object):
+    lst = []
+    def __init__(this,x,y,width,height,color):
+        this.x = x
+        this.y = y
+        this.pos = Point(x,y)
+        this.width = width
+        this.height = height
+        this.color = color
+        Rectangle.lst.append(this)
+        
+    def getDict(this):
+        return {'x':this.pos.x,
+                'y':this.pos.y,
+                'width':this.width,
+                'height':this.height,
+                'color':this.color
+                }
+                
+    def destroy(this):
+        Rectangle.lst.remove(this)
         
 class Planet(Circle):
     lst = []
@@ -382,12 +404,19 @@ class Ship(object):
         this.shapePoints = [Point(-10,0),Point(0,30),Point(10,0)]
         this.shape = Polygon(x,y,this.shapePoints,color)
         
+        this.health = 100
+        this.maxHealth = this.health
+        this.lifeBarSize = 20
+        this.lifeBar = Rectangle(x,y-10,this.lifeBarSize,5,'green')
+        
+        this.upgrades = 0
+        
         this.id = id
         this.angle = math.pi / 2
         this.turn = 0
         this.throttle = 0
         this.engine = Engine(1, x, y)
-        this.weapon = Weapon(1, 200, 'orange', 2, id)
+        this.weapon = Weapon(2, 100, 'orange', 2, id) #old bspeed = 200 bmass = 1
         
         this.name = name
         this.nameDisplay = Text(x,y,name)
@@ -401,6 +430,8 @@ class Ship(object):
         this.nameDisplay.y = this.pos.y + 15
         this.engine.exhaust.x = this.pos.x
         this.engine.exhaust.y = this.pos.y
+        this.lifeBar.pos.x = this.pos.x
+        this.lifeBar.pos.y = this.pos.y - 10
         
     def moveShip(this,dt):
         this.angle -= this.turn
@@ -414,9 +445,8 @@ class Ship(object):
         this.updatePolygon()
         for bullet in Bullet.lst:
             if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
-                this.destroy()
-                User.userDict[bullet.id].score += 1
-                updateScoreboard()
+                this.hit(bullet)
+                #this.destroy()
                 bullet.destroy()
                 break
         for planet in Planet.lst:
@@ -435,11 +465,28 @@ class Ship(object):
     def destroy(this):
         this.shape.destroy()
         this.engine.destroy()
+        this.lifeBar.destroy()
         this.nameDisplay.destroy()
         Ship.lst.remove(this)
         socketio.emit('destroyed','stuff',room=this.id)
         User.userDict[this.id].score = 0
         updateScoreboard()
+    
+    def updateLife(this):
+        this.lifeBar.width = this.lifeBarSize * this.health / this.maxHealth
+    
+    def hit(this, bullet):
+        damage = bullet.v.subtract(this.v).magnitude() * bullet.mass/10
+        this.health -= damage
+        this.updateLife()
+        if this.health <= 0:
+            this.destroy()
+            User.userDict[bullet.id].score += 1
+            User.userDict[bullet.id].ship.upgrades += 1
+            socketio.emit('upgrade',User.userDict[bullet.id].ship.upgrades,room=bullet.id)
+            print(User.userDict[bullet.id].ship.upgrades)
+            updateScoreboard()
+        print(damage)
         
     @staticmethod
     def moveAll(dt):
@@ -477,10 +524,10 @@ def spawnPlanets():
     global star
     for i in range(1,5):
         #d = random.randint(star.r,View.width/2)
-        d = star.r + i * 1/2 * View.width/2
+        d = 3*star.r + i * 1/2 * View.width/2
         v = (Planet.g*star.mass/d)**.5
         dist = 2*(i%2)-1
-        Planet(star.x,star.y+d,v,0,50,100000,'green',star)
+        Planet(star.x,star.y+d,v,0,50,100000/5,'green',star)
 spawnPlanets()
 #c = Planet(View.width//2,View.height//2-400, -100, 0, 75,100,'red')
 
@@ -540,6 +587,20 @@ def rotate(value):
 @socketio.on('shoot')
 def fire():
     User.userDict[request.sid].ship.shoot()
+
+@socketio.on('upgrade')
+def upgrade(part):
+    ship = User.userDict[request.sid].ship
+    if ship.upgrades > 0:
+        if part == 'engine':
+            ship.engine.force += .5
+            ship.upgrades -= 1
+            print('engine upgraded')
+            
+        elif part == 'weapon bspeed':
+            ship.weapon.bspeed += 50
+            ship.upgrades -= 1
+            print('bspeed increased')
     
 def tick():
     while True:
@@ -552,7 +613,7 @@ def tick():
         Planet.moveAll(dt)
         socketio.emit('update', {'circles':Circle.getSend(),
                             'polygons':getSend(Polygon),
-                            'rectangles':0,
+                            'rectangles':getSend(Rectangle),
                             'text':getSend(Text)}, namespace='/', broadcast=True)
         prevTime = t
         for user in User.userDict.keys():

@@ -12,6 +12,7 @@ var buttonList = [];
 var start = true;
 var score  = 0;
 var highScores = [];
+var upgrades = 0;
 class Button{
     constructor(x,y,width,height,color,text,font,textColor, fun){
         this.x = x;
@@ -176,6 +177,27 @@ var vHeight = 754;
         highScores = JSON.parse(JSON.stringify(data));
     });
 
+    socket.on('upgrade', function(number){
+        console.log('upgrade available');
+        upgrades = JSON.stringify(JSON.parse(number));
+        displayUpgradeOptions()
+        //socket.emit('upgrade','engine');
+    });
+
+    function displayUpgradeOptions(){
+        var bwidth = 200;
+        var bheight = 50;
+        var engine = new Button(bwidth/2,canvas.height-bheight/2,bwidth,bheight,
+            'yellow','upgrade engine','18px Arial', 'black', "upgrade('engine')");
+        var bspeed = new Button(bwidth/2,canvas.height-3*bheight/2,bwidth,bheight,
+            'red','increase bullet speed','18px Arial', 'black', "upgrade('weapon bspeed')");
+    }
+
+    function upgrade(part){
+        socket.emit('upgrade',part);
+        upgrades--;
+    }
+
     window.addEventListener('mousedown', function (e) {
         var count = 0;
         while(count < buttonList.length){
@@ -311,7 +333,15 @@ function scalePolygon(pt, polygon, distFn){
     return newPoint;
 }
 
-    function drawRectangles(){}
+    function drawRectangles(view){
+        var count = 0;
+        while (count < rectangles.length){
+            r = rectangles[count];
+            context.fillStyle = r.color;
+            context.fillRect(r.x-view.x+canvas.width/2,r.y-view.y+canvas.height/2,r.width,r.height);
+            count++;
+        }
+    }
     //https://www.w3schools.com/tags/canvas_lineto.asp
     //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
     function drawPolygons(zoom, cx, cy, viewX, viewY, distFn){
@@ -390,7 +420,7 @@ function scalePolygon(pt, polygon, distFn){
 
 function drawAll(size,x,y,viewX,viewY,distFn){
     drawCircles(size, x,y,viewX, viewY,distFn);
-    drawRectangles();
+    //drawRectangles();
     drawPolygons(size, x,y, viewX, viewY,distFn);
 }
 
@@ -459,7 +489,11 @@ function drawHighScores(){
             context.font = "30px Arial";
             context.fillText("Destroyed: "+score,30,50);
             drawText(view);
+            drawRectangles(view);
             drawHighScores();
+            if (upgrades > 0){
+                drawButtons();
+            }
         }
         else{
             context.drawImage(background,0,0);
