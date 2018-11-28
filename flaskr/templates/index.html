@@ -444,7 +444,7 @@ function drawHighScores(){
             context.fillStyle = 'white';
             context.textAlign = "center";
             context.font = "30px Arial";
-            context.fillText("Use arrow keys to rotate and accelerate. Press space to shoot.",canvas.width/2,canvas.height/2);
+            context.fillText("Use arrow keys to rotate and accelerate. Press space to shoot.",canvas.width/2,canvas.height/3);
             drawButtons();
         }
         else if (!destroyed){
@@ -467,7 +467,7 @@ function drawHighScores(){
             //https://www.w3schools.com/graphics/canvas_text.asp
             context.textAlign = "center";
             context.font = "30px Arial";
-            context.fillText("You were destroyed",canvas.width/2,canvas.height/2);
+            context.fillText("You were destroyed",canvas.width/2,canvas.height/3);
             drawButtons();
         }
         window.requestAnimationFrame(tick);
