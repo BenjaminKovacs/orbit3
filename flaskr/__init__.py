@@ -17,7 +17,9 @@ prevTime = time.time()
 def getSend(clss):
     result = []
     for item in clss.lst:
-        result.append(item.getDict()) 
+        d = item.getDict()
+        if d != None:
+            result.append(d) 
     return result
 
 class User(object):
@@ -281,12 +283,13 @@ def getDictPointsMini(points):
 
 class Polygon(object):
     lst = []
-    def __init__(this,x,y,points,color):
+    def __init__(this,x,y,points,color, hide=False):
         this.x = x
         this.y = y
         this.pos = Point(x,y)
         this.points = points
         this.color = color
+        this.hide=hide
         Polygon.lst.append(this)
     
     def getDrawPointsC(this,pt):
@@ -306,6 +309,8 @@ class Polygon(object):
         return result
             
     def getDict(this):
+        if this.hide:
+            return None
         this.pos.x = this.x
         this.pos.y = this.y
         mini = getMini(this)
@@ -328,10 +333,13 @@ def getDir(angle):
     return Point(math.cos(angle),math.sin(angle))
 
 class Engine(object):
-    def __init__(this,force):
+    def __init__(this,force,x,y):
         this.force = force
+        this.exhaustPoints = [Point(-8,0),Point(0,-10),Point(8,0)]
+        this.exhaust = Polygon(x,y,this.exhaustPoints,'orange',True)
+        
     def destroy(this):
-        pass
+        this.exhaust.destroy()
 
 class Weapon(object):
     def __init__(this, bmass, bspeed, bcolor, br, id):
@@ -378,7 +386,7 @@ class Ship(object):
         this.angle = math.pi / 2
         this.turn = 0
         this.throttle = 0
-        this.engine = Engine(1)
+        this.engine = Engine(1, x, y)
         this.weapon = Weapon(1, 200, 'orange', 2, id)
         
         this.name = name
@@ -391,11 +399,15 @@ class Ship(object):
         this.shape.y = this.pos.y
         this.nameDisplay.x = this.pos.x
         this.nameDisplay.y = this.pos.y + 15
+        this.engine.exhaust.x = this.pos.x
+        this.engine.exhaust.y = this.pos.y
         
     def moveShip(this,dt):
         this.angle -= this.turn
         this.shape.rotate(this.turn)
+        this.engine.exhaust.rotate(this.turn)
         this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
+        this.engine.exhaust.hide = (this.throttle == 0)
         for planet in Planet.lst:
             this.v = this.v.add(planet.getA(this.pos).scale(dt))
         this.pos = this.pos.add(this.v.scale(dt))
