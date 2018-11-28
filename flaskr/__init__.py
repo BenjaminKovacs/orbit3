@@ -21,11 +21,13 @@ def getSend(clss):
     return result
 
 class User(object):
+    scoreboard = []
     userDict = {}
-    def __init__(this,id,ship,view):
+    def __init__(this,id,ship,view, name):
         this.id = id
         this.ship = ship
         this.view = view
+        this.name = name
         this.score = 0
         User.userDict[id] = this
         
@@ -33,6 +35,18 @@ class User(object):
         this.ship.destroy()
         this.view.destroy()
         del User.userDict[this.id]
+        
+def updateScoreboard():
+    #https://stackoverflow.com/questions/403421/how-to-sort-a-list-of-objects-based-on-an-attribute-of-the-objects
+    #https://www.pythoncentral.io/convert-dictionary-values-list-python/
+    scores = list(User.userDict.values())
+    scores.sort(key=lambda x: x.score)
+    highScores = scores[:-6:-1]
+    sendScores = []
+    for s in highScores:
+        sendScores.append(s.name+': '+str(s.score)) 
+    socketio.emit('high scores', sendScores, namespace='/', broadcast=True)
+    
 
 def getMini(shape):
     mini = shape.pos.subtract(View.center)
@@ -43,6 +57,26 @@ def getMini(shape):
     mini = mini.add(View.center)
     #mini = mini.getDict()
     return mini
+
+class Text(object):
+    lst = []
+    def __init__(this,x,y,txt,color='white',font='12px Arial'):
+        this.x = x
+        this.y = y
+        this.text = txt
+        this.color = color
+        this.font = font
+        Text.lst.append(this)
+        
+    def getDict(this):
+        return {'x':this.x,
+                'y':this.y,
+                'text':this.text,
+                'color':this.color,
+                'font':this.font}
+                
+    def destroy(this):
+        Text.lst.remove(this)
         
 class Circle(object):
     lst = []
@@ -328,7 +362,7 @@ class View(object):
     
 class Ship(object):
     lst = []
-    def __init__(this, x, y, mass, vx, vy, color, id):
+    def __init__(this, x, y, mass, vx, vy, color, id, name):
         this.x = x
         this.y = y
         this.pos = Point(x,y)
@@ -347,11 +381,16 @@ class Ship(object):
         this.engine = Engine(1)
         this.weapon = Weapon(1, 200, 'orange', 2, id)
         
+        this.name = name
+        this.nameDisplay = Text(x,y,name)
+        
         Ship.lst.append(this)
         
     def updatePolygon(this):
         this.shape.x = this.pos.x
         this.shape.y = this.pos.y
+        this.nameDisplay.x = this.pos.x
+        this.nameDisplay.y = this.pos.y + 15
         
     def moveShip(this,dt):
         this.angle -= this.turn
@@ -365,6 +404,7 @@ class Ship(object):
             if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
                 this.destroy()
                 User.userDict[bullet.id].score += 1
+                updateScoreboard()
                 bullet.destroy()
                 break
         for planet in Planet.lst:
@@ -383,8 +423,11 @@ class Ship(object):
     def destroy(this):
         this.shape.destroy()
         this.engine.destroy()
+        this.nameDisplay.destroy()
         Ship.lst.remove(this)
         socketio.emit('destroyed','stuff',room=this.id)
+        User.userDict[this.id].score = 0
+        updateScoreboard()
         
     @staticmethod
     def moveAll(dt):
@@ -450,21 +493,23 @@ def handle_message(message):
         prevTime = t
         emit('update', {'circles':Circle.getSend(),
                         'polygons':getSend(Polygon),
-                        'rectangles':0})
+                        'rectangles':0,
+                        'text':0})
     # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
     
 @socketio.on('first start')
-def start():
+def start(name):
     print('a user connected')
     color = random.choice(['blue','green','white','yellow'])
-    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid)
-    User(request.sid, s, View(s.x,s.y))
+    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name)
+    User(request.sid, s, View(s.x,s.y), name)
+    updateScoreboard()
     join_room('main')
 
 @socketio.on('start again')
 def restart():
     color = random.choice(['blue','green','white','yellow'])
-    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid)
+    s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, User.userDict[request.sid].name)
     User.userDict[request.sid].ship = s;
     User.userDict[request.sid].score = 0;
  
@@ -495,7 +540,8 @@ def tick():
         Planet.moveAll(dt)
         socketio.emit('update', {'circles':Circle.getSend(),
                             'polygons':getSend(Polygon),
-                            'rectangles':0}, namespace='/', broadcast=True)
+                            'rectangles':0,
+                            'text':getSend(Text)}, namespace='/', broadcast=True)
         prevTime = t
         for user in User.userDict.keys():
             socketio.emit('view',User.userDict[user].ship.pos.getDict(),room=User.userDict[user].id)
