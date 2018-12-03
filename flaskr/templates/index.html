@@ -38,7 +38,7 @@ function drawButton(button){
         context.fillText(button.text,button.x,button.y);
     }
 
-    var socket = io.connect('http://' + document.domain + ':' + location.port);
+    var socket = io.connect(document.URL);
     var circles = [];
     var rectangles = [];
     var polygons = [];
@@ -157,6 +157,7 @@ var vHeight = 754;
     });
 
     socket.on('update', function(data){
+        console.log('updated'+data);
         thingsToDraw = JSON.parse(JSON.stringify(data));
         circles = thingsToDraw.circles;
         rectangles = thingsToDraw.rectangles;

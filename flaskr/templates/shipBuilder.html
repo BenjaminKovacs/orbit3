@@ -1,0 +1,287 @@
+<!--<span id='test'></span>
+<br></br>
+yay, it works!-->
+<!--https://stackoverflow.com/questions/2941189/how-to-overlay-one-div-over-another-div-->
+<div id='add' style="text-align:center; margin:auto"></div>
+<!--<div id='name entry' style='position:absolute; z-index:2; color:white'>test</div>-->
+<canvas id='canvas'></canvas>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+<script type="text/javascript" charset="utf-8">
+//socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
+    var socket = io.connect(document.URL);
+    var circles = [];
+    var rectangles = [];
+    var polygons = [];
+    var text = [];
+    var thingsToDraw = [];
+    var margin;
+   
+    //record keys currently pressed, copied from capture the flag game I created
+    keysPressed = [];
+    for (i=0; i < 193; i++){keysPressed[i]=false;}
+
+    function resetPressedKeys(){
+    for (i=0; i < 193; i++){keysPressed[i]=false;}
+    }
+
+    window.addEventListener('keydown', function (e) {
+    for (i = 8; i < 193; i++){
+        if (e.keyCode == i){
+        keysPressed[i] = true;
+        }
+    }
+    });
+    window.addEventListener('keyup', function (e) {
+    for (i = 8; i < 193; i++){
+        if (e.keyCode == i){
+        keysPressed[i] = false;
+        }
+    }
+    });
+
+    //left = keysPressed[37] || keysPressed[65];
+    //right = keysPressed[39] || keysPressed[68];
+    //up = keysPressed[38] || keysPressed[87];
+    //down = keysPressed[40] || keysPressed[83];
+var background;
+var vWidth = 1536;
+var vHeight = 754;
+    socket.on('connect', function() {
+        console.log('connected');
+        var canvas = document.getElementById('canvas');
+        margin = 16; //remove scroll bars
+        var width = window.innerWidth-margin;
+        var height = window.innerHeight-margin;
+       
+        var whRatio = 1536/754;
+        if (width/height > whRatio){
+            canvas.height = height;
+            canvas.width = whRatio * height;
+        }
+        else{
+            canvas.width = width;
+            canvas.height = width/whRatio;
+        }
+        scale = canvas.width/1536;
+        context = canvas.getContext('2d');
+        context.fillStyle = 'black';
+        context.fillRect(0,0,canvas.width,canvas.height);
+
+        //https://www.w3schools.com/tags/canvas_drawimage.asp
+        //https://stackoverflow.com/questions/4276048/html5-canvas-fill-circle-with-image
+        //load image
+        //image from https://insider.si.edu/wp-content/uploads/2015/08/M43_beletsky.jpg
+        tick();
+   
+    });
+
+    socket.on('update', function(data){
+        console.log('update received');
+        thingsToDraw = JSON.parse(JSON.stringify(data));
+        circles = thingsToDraw.circles;
+        rectangles = thingsToDraw.rectangles;
+        polygons = thingsToDraw.polygons;
+        text = thingsToDraw.text;
+    });
+
+    socket.on('test', function(data){
+        console.log('message received');
+    });
+
+    var adjust;
+
+    window.addEventListener('mousedown', function (e) {
+        socket.emit('click',(e.clientX)/scale-margin/2,(e.clientY)/scale-margin/2);
+    });
+
+    window.addEventListener('mousemove', function (e) {
+        socket.emit('move',e.clientX,e.clientY);
+    });
+
+function sign(x){
+    return x/Math.abs(x);
+}
+
+function mag(pt){
+    return Math.sqrt(Math.pow(pt.x,2)+Math.pow(pt.y,2));
+}
+
+function drawText(){
+    var count = 0;
+    while (count < text.length){
+        var txt = text[count];
+        context.fillStyle = txt.color;
+        context.textAlign = "center";
+        context.font = txt.font;
+        context.fillText(txt.text,txt.x,txt.y);
+        count++;
+    }
+}
+
+    function drawCircles(zoom, cx, cy, viewX, viewY, distFn){
+        
+        var count = 0;
+        while (count<circles.length){
+            context.beginPath();
+            pt = circles[count];
+            if(pt.r >10){
+              //  console.log('x: '+pt.x+' y: '+pt.y);
+            }
+            if(distFn != ''){
+                pt = pt.mini;
+            }
+            var p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
+            var r = circles[count].r * scale;
+            
+            //console.log('x: '+x+' y: '+y);
+           // console.log(Math.log(x));
+       // console.log(Math.log(y));
+      //      x = sign(x) * eval(distFn+'('+Math.abs(x)+')');
+      //      y = sign(y) * eval(distFn+'('+Math.abs(y)+')');
+    
+         //   console.log('x: '+x+' y: '+y);
+            r = r*zoom;
+            var color = circles[count].color;
+            context.fillStyle = color;
+            context.ellipse(p.x, p.y, r, r, 0, 2 * Math.PI, false);
+            context.fill();
+            count++;
+            context.closePath();
+        }
+        
+    }
+
+    function startGame(){
+        var name = document.getElementById('name').value;
+        console.log(name);
+        document.getElementById('name entry').innerHTML = '';
+        socket.emit('first start', name);
+        start = false;
+        buttonList = [];
+    }
+
+function zoomF(point, zoom){
+    point.x *=zoom;
+    point.y *= zoom;
+    return point;
+}
+function shift(point,viewX,viewY){
+    var newPoint = {};
+    newPoint.x = (point.x-viewX+canvas.width/2)*scale;
+    newPoint.y = (point.y-viewY+canvas.height/2)*scale;
+    return newPoint;
+}
+function scaleDist(point, distFn){
+    var newPoint = {};
+   // console.log('scaleDist start x: '+point.x+' y: '+point.y);
+   if (point.x != 0){
+     newPoint.x = sign(point.x) * eval(distFn+'('+Math.abs(point.x)+')');
+   }
+   else{newPoint.x=0;}
+   // console.log(distFn+'('+Math.abs(point.x)+')');
+   // console.log('scaleDist change x x: '+npoint.x+' y: '+point.y);
+   if (point.y != 0){
+    newPoint.y = sign(point.y) * eval(distFn+'('+Math.abs(point.y)+')');
+    }
+    else{newPoint.y=0;}
+   // console.log('scaleDist change y x: '+point.x+' y: '+point.y);
+    return newPoint;
+}
+
+function adjustAndScalePoint(point,cx,cy,viewX,viewY,zoom,distFn){
+    var newPoint = {};
+    newPoint = shift(point,viewX,viewY);
+    newPoint = scaleDist(newPoint,distFn);
+    newPoint = zoomF(newPoint, zoom);
+    newPoint.x += cx;
+    newPoint.y += cy;
+    return newPoint;
+}
+
+function adjustPoint(point,cx,cy,viewX,viewY,zoom){
+    var newPoint = {};
+    newPoint = shift(point,viewX,viewY);
+    newPoint = zoomF(newPoint, zoom);
+    newPoint.x += cx;
+    newPoint.y += cy;
+    return newPoint;
+}
+
+function scalePolygon(pt, polygon, distFn){
+    newPoint = {};
+    newPoint.x = pt.x ;//- polygon.x;
+    newPoint.y = pt.y ;//- polygon.y;
+   // console.log('new x: '+newPoint.x+' y: '+newPoint.y);
+    newPoint = scaleDist(newPoint, distFn);
+ //   console.log('scaleDist x: '+newPoint.x+' y: '+newPoint.y);
+   // newPoint.x += polygon.x;
+  //  newPoint.y += polygon.y;
+  //  console.log('final x: '+newPoint.x+' y: '+newPoint.y);
+    return newPoint;
+}
+
+    function drawRectangles(){
+        var count = 0;
+        while (count < rectangles.length){
+            r = rectangles[count];
+            context.fillStyle = r.color;
+            context.fillRect(r.x,r.y,r.width,r.height);
+            count++;
+        }
+    }
+    //https://www.w3schools.com/tags/canvas_lineto.asp
+    //http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
+    function drawPolygons(zoom, cx, cy, viewX, viewY, distFn){
+        var count = 0;
+        while (count < polygons.length){
+            polygon = polygons[count];
+            context.fillStyle = polygon.color;
+            context.beginPath();
+            var pt = polygon.points[0];
+            if(distFn != ''){
+                pt = polygon.mini[0];
+            }
+            //pt = scalePolygon(pt,polygon,distFn);
+            var p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
+            //var poly = adjustPoint(polygon,cx,cy,viewX,viewY,zoom);
+            //p = scalePolygon(p,poly,distFn);
+            context.moveTo(p.x, p.y);
+            var pointNum = 1;
+            while(pointNum < polygon.points.length){
+                pt = polygon.points[pointNum];
+                if(distFn != ''){
+                pt = polygon.mini[pointNum];
+                }
+             //   console.log('x: '+pt.x+' y: '+pt.y);
+               // pt = scalePolygon(pt,polygon,distFn);
+             //   console.log('x: '+pt.x+' y: '+pt.y);
+                p = adjustPoint(pt,cx,cy,viewX,viewY,zoom);
+               // var poly = adjustPoint(polygon,cx,cy,viewX,viewY,zoom);
+               // p = scalePolygon(p,poly,distFn);
+                context.lineTo(p.x,p.y);
+            //    console.log('drawn x: '+p.x+' y: '+p.y);
+                pointNum++;
+            }
+            context.fill();
+            context.stroke();
+            context.closePath();
+            count++;
+        }
+    }
+
+function drawAll(size,x,y,viewX,viewY,distFn){
+    drawCircles(size, x,y,viewX, viewY,distFn);
+    //drawRectangles();
+    drawPolygons(size, x,y, viewX, viewY,distFn);
+}
+
+    function tick(){
+        context.fillStyle = 'white';
+        context.fillRect(0,0,canvas.width,canvas.height);
+        drawAll(1, 0,0, canvas.width/2, canvas.height/2,'');
+        drawText();
+        drawRectangles();
+        window.requestAnimationFrame(tick);
+    }
+</script>
+
