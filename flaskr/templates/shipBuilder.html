@@ -98,6 +98,12 @@ var vHeight = 754;
         socket.emit('move',e.clientX,e.clientY);
     });
 
+    socket.on('ship code',function(code){
+        code = JSON.parse(JSON.stringify(code));
+        console.log(code);
+        document.cookie = 'ship='+code;
+    });
+
 function sign(x){
     return x/Math.abs(x);
 }

@@ -185,6 +185,11 @@ var vHeight = 754;
         //socket.emit('upgrade','engine');
     });
 
+    socket.on('get ship', function(){
+        var ship = document.cookie;
+        socket.emit('ship', ship);
+    });
+
     function displayUpgradeOptions(){
         var bwidth = 200;
         var bheight = 50;
@@ -269,7 +274,7 @@ function drawText(view){
         var name = document.getElementById('name').value;
         console.log(name);
         document.getElementById('name entry').innerHTML = '';
-        socket.emit('first start', name);
+        socket.emit('first start', name, document.cookie);
         start = false;
         buttonList = [];
     }

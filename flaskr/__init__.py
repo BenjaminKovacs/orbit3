@@ -44,6 +44,9 @@ def createGame(name, upgradeType='simple'):
             this.name = name
             this.score = 0
             User.userDict[id] = this
+            if upgradeType == 'ship builder':
+                this.shipSet = False
+                this.builtShip = None
             
         def destroy(this):
             this.ship.destroy()
@@ -412,6 +415,9 @@ def createGame(name, upgradeType='simple'):
         def update(this,x,y):
             this.shape.x = x
             this.shape.y = y
+            
+        def __repr__(this):
+            return 'Basic('+str(this.shape.x)+','+str(this.shape.y)+')'
     
     class Weapon(object):
         def __init__(this, bmass, bspeed, bcolor, br, id):
@@ -439,10 +445,30 @@ def createGame(name, upgradeType='simple'):
                     }
         def destroy(this):
             pass
-        
+            
+    class ControlUnit(object):
+        def __init__(this,x,y):
+            this.x = x
+            this.y = y
+            this.pos = Point(x,y)
+            this.mass = 1
+            this.color = 'blue'
+            this.shapePoints = [Point(-10,0),Point(0,30),Point(10,0)]
+            this.shape = Polygon(x,y,this.shapePoints,this.color)
+            
+        def __repr__(this):
+            return 'ControlUnit('+str(this.shape.x)+','+str(this.shape.y)+')' 
+            
+        def update(this,x,y):
+            this.shape.x = x
+            this.shape.y = y
+            
+        def destroy(this):
+            this.shape.destroy()
+              
     class Ship(object):
         lst = []
-        def __init__(this, x, y, mass, vx, vy, color, id, name):
+        def __init__(this, x, y, mass, vx, vy, color, id, name, parts=[]):
             this.x = x
             this.y = y
             this.pos = Point(x,y)
@@ -467,7 +493,22 @@ def createGame(name, upgradeType='simple'):
             elif (upgradeType == 'ship builder'):
                 this.engine = Basic(x,y)
                 this.weapon = Weapon(2, 100, 'orange', 2, id) #old bspeed = 200 bmass = 1
-                this.parts = [this.engine]
+                #exec(parts)#exec(parts)
+                #ControlUnit(0,0)
+                #https://docs.python.org/3/library/functions.html#exec
+                #https://docs.python.org/3/reference/executionmodel.html#naming-and-binding
+                print('===============================================')
+                print(len(Polygon.lst))
+                this.parts = eval(parts[5:],{'ControlUnit':ControlUnit,'Basic':Basic})#ship
+                print(this.parts)
+                print(len(Polygon.lst))
+                print('===============================================')
+                x = this.parts[0].shape.x
+                y = this.parts[0].shape.y
+                this.relativeParts = []
+                for part in this.parts:
+                    this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
+                
             
             this.id = id
             this.angle = math.pi / 2
@@ -489,15 +530,23 @@ def createGame(name, upgradeType='simple'):
             this.engine.exhaust.y = this.pos.y
             this.lifeBar.pos.x = this.pos.x
             this.lifeBar.pos.y = this.pos.y - 10
-            if upgradeType == 'ship builder':
-                for part in this.parts:
-                    part.update(this.pos.x,this.pos.y)
+            if upgradeType == 'ship builder' and this.parts != None:
+                this.moveParts(this.pos.x,this.pos.y)
+        
+        def moveParts(this,x,y):
+            for i in range(len(this.parts)):
+                part = this.parts[i]
+                rpart = this.relativeParts[i]
+                part.shape.x = x + rpart.x
+                part.shape.y = y + rpart.y
+                print('x',rpart.x,'y',rpart.y)
+                
             
         def moveShip(this,dt):
             this.angle -= this.turn
             this.shape.rotate(this.turn)
             this.engine.exhaust.rotate(this.turn)
-            if upgradeType == 'ship builder':
+            if upgradeType == 'ship builder' and this.parts != None:
                 for part in this.parts:
                     part.shape.rotate(this.turn)
             this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
@@ -545,9 +594,10 @@ def createGame(name, upgradeType='simple'):
             if this.health <= 0:
                 this.destroy()
                 User.userDict[bullet.id].score += 1
-                User.userDict[bullet.id].ship.upgrades += 1
-                socketio.emit('upgrade',User.userDict[bullet.id].ship.upgrades,room=bullet.id,namespace='/'+name)
-                print(User.userDict[bullet.id].ship.upgrades)
+                if upgradeType == 'simple':
+                    User.userDict[bullet.id].ship.upgrades += 1
+                    socketio.emit('upgrade',User.userDict[bullet.id].ship.upgrades,room=bullet.id,namespace='/'+name)
+                    print(User.userDict[bullet.id].ship.upgrades)
                 updateScoreboard()
             print(damage)
             
@@ -619,11 +669,19 @@ def createGame(name, upgradeType='simple'):
             # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
             
         @socketio.on('first start', namespace='/'+name)
-        def start(name):
+        def start(name, ship=''):
+            a = ControlUnit(0,0)
+            a.destroy()
             print('===================== starting game '+name+'================================================')
             color = random.choice(['blue','green','white','yellow'])
-            s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name)
+            if (upgradeType=='ship builder'):
+                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name, 
+                    ship)
+            else:
+                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name)
             User(request.sid, s, View(s.x,s.y), name)
+            User.userDict[request.sid].builtShip = ship
+            User.userDict[request.sid].shipSet = True
             updateScoreboard()
             join_room('main')
         
@@ -674,6 +732,8 @@ def createGame(name, upgradeType='simple'):
                 Ship.moveAll(dt)
                 Bullet.moveAll(dt)
                 Planet.moveAll(dt)
+                if upgradeType == 'ship builder':
+                    print(len(getSend(Polygon)))
                 socketio.emit('update', {'circles':Circle.getSend(),
                                     'polygons':getSend(Polygon),
                                     'rectangles':getSend(Rectangle),
@@ -690,14 +750,22 @@ def createGame(name, upgradeType='simple'):
         #eventlet.spawn(tick)
     else:
         print('ship builder created')
-        parts = ['Basic']
+        global partStrings
+        global parts
+        partStrings = ['Basic']
+        parts = []
         width = 30
-        space = View.width/(len(parts)+1)
+        space = View.width/(len(partStrings)+1)
         count = 1
-        for part in parts:
+        for part in partStrings:
             x = count * space
             y = 2*View.height/3
-            exec(part+'('+str(x)+','+str(y)+')')
+            code = part+'('+str(x)+','+str(y)+')'
+            print(code)
+            p = eval(code)
+            print(p)
+            parts.append(p)
+            print(parts)
             Text(x,y+10,part,'black','20px Arial')
             count += 1
         @app.route('/ship-builder')
@@ -707,7 +775,7 @@ def createGame(name, upgradeType='simple'):
         @socketio.on('connect',namespace='/ship-builder')
         def shipBuilderConnection():
             User(request.sid,[],None,'')
-            User.userDict[request.sid].parts = []
+            User.userDict[request.sid].parts = [ControlUnit(View.width//2,View.height//2)]
             User.userDict[request.sid].selected = None
             emit('update', getSendAll(), namespace='/ship-builder')
                             
@@ -715,38 +783,45 @@ def createGame(name, upgradeType='simple'):
         def click(x,y):
             selected = User.userDict[request.sid].selected
             if selected == None:
-                for poly in (User.userDict[request.sid].parts):
-                    print(x,y,'part',poly.x,poly.y)
-                    if poly.ptInPolygon(Point(x,y)):
-                        selected = poly
-                        print('picked up a polygon')
-                for poly in Polygon.lst:
-                    print(x,y,'part',poly.x,poly.y)
-                    if poly.ptInPolygon(Point(x,y)):
-                        selected = copy.deepcopy(poly)
-                        User.userDict[request.sid].parts.append(selected)
-                        #selected.destroy()
-                        print('picked up a polygon from supply')
+                for part in (User.userDict[request.sid].parts):
+                    if part != None:
+                        poly = part.shape
+                        #print(x,y,'part',poly.x,poly.y)
+                        if poly.ptInPolygon(Point(x,y)):
+                            selected = part
+                            print('picked up a polygon')
+                global parts
+                for part in parts:
+                    #print(part)
+                    if part != None:
+                        poly = part.shape
+                        print(x,y,'part',poly.x,poly.y)
+                        if poly.ptInPolygon(Point(x,y)):
+                            selected = copy.deepcopy(part)
+                            User.userDict[request.sid].parts.append(selected)
+                            #selected.destroy()
+                            print('picked up a polygon from supply')
             else:
                 selected = None
                 print('dropped a polygon')
             User.userDict[request.sid].selected = selected
+            emit('ship code',str(User.userDict[request.sid].parts), namespace='/ship-builder')
         
         def getPartsDict(parts):
             result = []
             for part in parts:
-                d = part.getDict()
+                d = part.shape.getDict()
                 if d != None:
                     result.append(d)
-            print(result)
+            #print(result)
             return result
         
         @socketio.on('move',namespace='/ship-builder')
         def movePart(x,y):
             selected = User.userDict[request.sid].selected
             if selected != None:
-                selected.x = x
-                selected.y = y
+                selected.shape.x = x
+                selected.shape.y = y
                 #print('moving part',x,y)
             emit('update', {'circles':Circle.getSend(),
                             'polygons':getSend(Polygon)+getPartsDict(User.userDict[request.sid].parts),
