@@ -262,11 +262,19 @@ def createGame(name, upgradeType='simple'):
         def add(this,other):
             return Point(this.x+other.x,this.y+other.y)
             
+        def addA(this,other):
+            this.x += other.x
+            this.y += other.y
+            return this
+            
         def scale(this,n):
             return Point(this.x*n,this.y*n)
             
         def subtract(this,other):
             return this.add(other.scale(-1))
+            
+        def subtractA(this,other):
+            return this.addA(other.scale(-1))
         
         def magnitude(this):
             return (this.x**2+this.y**2)**.5
@@ -332,6 +340,10 @@ def createGame(name, upgradeType='simple'):
             this.hide=hide
             Polygon.lst.append(this)
         
+        def updatePos(this):
+            this.pos.x = this.x
+            this.pos.y = this.y
+        
         def getDrawPointsC(this,pt):
             result = []
             for point in this.points:
@@ -362,9 +374,11 @@ def createGame(name, upgradeType='simple'):
                     'color':this.color,
                     'mini':mini.points}
         
-        def rotate(this,angle):
+        def rotate(this,angle, pt=Point(0,0)):
             for point in this.points:
-                point.rotate(angle)
+                #print(point.x,point.y,pt.x,pt.y)
+                point.subtractA(pt).rotate(angle)
+                point.addA(pt)
         
         def setAngle(this,angle):
             for point in this.points:
@@ -548,7 +562,8 @@ def createGame(name, upgradeType='simple'):
             this.engine.exhaust.rotate(this.turn)
             if upgradeType == 'ship builder' and this.parts != None:
                 for part in this.parts:
-                    part.shape.rotate(this.turn)
+                    #part.shape.updatePos()
+                    part.shape.rotate(this.turn, this.pos.subtract(part.shape.pos))
             this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
             this.engine.exhaust.hide = (this.throttle == 0)
             for planet in Planet.lst:
@@ -733,7 +748,8 @@ def createGame(name, upgradeType='simple'):
                 Bullet.moveAll(dt)
                 Planet.moveAll(dt)
                 if upgradeType == 'ship builder':
-                    print(len(getSend(Polygon)))
+                    pass
+                    #print(len(getSend(Polygon)))
                 socketio.emit('update', {'circles':Circle.getSend(),
                                     'polygons':getSend(Polygon),
                                     'rectangles':getSend(Rectangle),
