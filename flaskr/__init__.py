@@ -22,7 +22,7 @@ socketio = SocketIO(app)
 global prevTime   
 prevTime = {}
 
-def createGame(name, upgradeType='simple', fuelLimit=False):
+def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
     global prevTime
     prevTime[name] = time.time()
     
@@ -165,8 +165,13 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 return False
         
         def destroy(this):
-            Circle.lst.remove(this)
-            #print('destroyed')
+            try:
+                Circle.lst.remove(this)
+            except:
+                print('WARNING: Circle does not exist')
+        
+        def pointIn(this, pt):
+            return pt.subtract(this.pos).magnitude() <= this.r
                     
         @staticmethod
         def getSend():
@@ -193,7 +198,10 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                     }
                     
         def destroy(this):
-            Rectangle.lst.remove(this)
+            try:
+                Rectangle.lst.remove(this)
+            except:
+                print('WARNING: Rectangle does not exist')
             
     class Planet(Circle):
         lst = []
@@ -385,7 +393,10 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 point.setAngle(angle)
                     
         def destroy(this):
-            Polygon.lst.remove(this)
+            try:
+                Polygon.lst.remove(this)
+            except:
+                print('WARNING: Polygon does not exist')
             
         def ptInPolygon(this,point):
             this.pos.x = this.x
@@ -418,7 +429,9 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 #this.exhaust.y = this.shape.y
                 this.exhaust.hide = (ship.throttle == 0)
                 if fuelLimit:
-                    ship.fuel -= ship.throttle*.001
+                    fuelUsed = ship.throttle*.001
+                    ship.fuel -= fuelUsed
+                    ship.mass -= fuelUsed * ship.fuelMass
                     ship.updateFuel()
             else:
                 this.exhaust.hide = True
@@ -442,6 +455,8 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             this.points = [Point(-8,-4),Point(-5,0),Point(5,0),Point(8,-4)]
             this.color = 'green'
             this.shape = Polygon(x,y,this.points,this.color)
+            this.mass = 1.2
+            this.cost = 3
             
         def destroy(this):
             super().destroy()
@@ -486,7 +501,8 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             this.x = x
             this.y = y
             this.pos = Point(x,y)
-            this.mass = 1
+            this.mass = .4
+            this.cost = 0
             this.color = 'blue'
             this.shapePoints = [Point(-10,0),Point(0,30),Point(10,0)]
             this.shape = Polygon(x,y,this.shapePoints,this.color)
@@ -506,8 +522,9 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             this.x = x
             this.y = y
             this.pos = Point(x,y)
-            this.mass = 10
+            this.mass = .2
             this.fuel = 100
+            this.cost = 1
             this.color = 'yellow'
             #TODO: make it so that polygons can have vertical lines
             this.shapePoints = [Point(-10.00001,-20),Point(10,-20),Point(10.00001,0),Point(-10,0.000001)]
@@ -522,6 +539,51 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             
         def destroy(this):
             this.shape.destroy()
+    
+    #TODO: make ore miners obey the laws of physics        
+    class OreMiner(object):
+        lst = []
+        def __init__(this,x,y, target):
+            this.x = x
+            this.y = y
+            this.speed = 300
+            this.pos = Point(x,y)
+            this.target = target
+            this.mass = 1
+            this.ore = 0
+            this.capacity = 100
+            this.color = 'pink'
+            this.landed = False
+            this.shapePoints = [Point(-10.00001,-20),Point(10,-20),Point(10.00001,0),Point(-10,0.000001)]
+            this.shape = Polygon(x,y,this.shapePoints,this.color)
+            OreMiner.lst.append(this)
+        
+        def updatePolygon(this):
+            this.shape.x = this.pos.x
+            this.shape.y = this.pos.y
+            
+        def move(this,dt):
+            if not this.target.checkIntersect(this.shape) and not this.landed:
+                this.pos = this.pos.add(this.pos.subtract(this.target.pos).direction().scale(this.speed*dt*-1))
+            else:
+                if not this.landed:
+                    this.posRel = this.pos.subtract(this.target.pos)
+                    this.landed = True
+                    print(this.posRel.x,this.posRel.y)
+                print('this',this.pos.x,this.pos.y)
+                this.ore += dt
+                this.pos = this.posRel.add(this.target.pos)
+                print('target',this.target.pos.x,this.target.pos.y)
+                print('updated',this.pos.x,this.pos.y)
+            this.updatePolygon()
+                
+        def destroy(this):
+            this.shape.destroy()
+            
+        @staticmethod
+        def moveAll(dt):
+            for miner in OreMiner.lst:
+                miner.move(dt)
               
     class Ship(object):
         lst = []
@@ -564,15 +626,35 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 y = this.partDict['Control'][0].shape.y
                 this.relativeParts = []
                 this.parts = []
+                this.mass = .00001
+                this.cost = 0
+                this.money = 5
+                tooExpensive = False
+                print(tooExpensive)
                 for k in this.partDict.keys():
                     for part in this.partDict[k]:
+                        print(tooExpensive)
                         this.parts.append(part)
                         this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
+                        this.mass += part.mass
+                        this.cost += part.cost
+                        if this.cost > this.money:
+                            this.parts.pop()
+                            this.relativeParts.pop()
+                            this.mass -= part.mass
+                            this.cost -= part.cost
+                            part.destroy()
+                            tooExpensive = True
+                print(tooExpensive)            
+                if tooExpensive:
+                    socketio.emit('too expensive', room=id,namespace='/'+name)
                 
-                this.fuel = 0  
+                this.fuel = 0 
+                this.fuelMass = .05 
                 print(this.partDict)      
                 for tank in this.partDict['Fuel tanks']:
                     this.fuel += tank.fuel
+                this.mass += this.fuel * this.fuelMass
                     
             #TODO: create class for stats bars instead of handling them individually
             if fuelLimit:
@@ -597,13 +679,21 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             this.shape.y = this.pos.y
             this.nameDisplay.x = this.pos.x
             this.nameDisplay.y = this.pos.y + 15
-            this.engine.exhaust.x = this.pos.x
-            this.engine.exhaust.y = this.pos.y
-            this.lifeBar.pos.x = this.pos.x
-            this.lifeBar.pos.y = this.pos.y - 10
+            if upgradeType != 'ship builder':
+                this.engine.exhaust.x = this.pos.x
+                this.engine.exhaust.y = this.pos.y
+            try:
+                this.lifeBar.pos.x = this.pos.x
+                this.lifeBar.pos.y = this.pos.y - 10
+            except:
+                #print("this ship doesn't have a life bar")
+                pass
             if fuelLimit:
-                this.fuelBar.pos.x = this.pos.x
-                this.fuelBar.pos.y = this.pos.y - 15
+                try:
+                    this.fuelBar.pos.x = this.pos.x
+                    this.fuelBar.pos.y = this.pos.y - 15
+                except:
+                    pass
             if upgradeType == 'ship builder' and this.parts != None:
                 this.moveParts(this.pos.x,this.pos.y)
         
@@ -616,11 +706,11 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 #try:
                 if isinstance(part,Engine):
                     part.move()
-                    print('it moves',type(part))
+                    #print('it moves',type(part))
                # except:
                #     print('it breaks',type(part),e)
                  #   pass
-                print('x',rpart.x,'y',rpart.y)
+                #print('x',rpart.x,'y',rpart.y)
                 
             
         def moveShip(this,dt):
@@ -646,16 +736,29 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 this.v = this.v.add(planet.getA(this.pos).scale(dt))
             this.pos = this.pos.add(this.v.scale(dt))
             this.updatePolygon()
-            for bullet in Bullet.lst:
-                if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
-                    this.hit(bullet)
-                    #this.destroy()
-                    bullet.destroy()
-                    break
-            for planet in Planet.lst:
-                if planet.checkIntersect(this.shape):
-                    this.destroy()
-                    break
+            if upgradeType != 'ship builder':
+                for bullet in Bullet.lst:
+                    if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(this.shape):
+                        this.hit(bullet)
+                        #this.destroy()
+                        bullet.destroy()
+                        break
+                for planet in Planet.lst:
+                    if planet.checkIntersect(this.shape):
+                        this.destroy()
+                        break
+            else:
+                for part in this.parts:
+                    for bullet in Bullet.lst:
+                        if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(part.shape):
+                            this.hit(bullet)
+                            #this.destroy()
+                            bullet.destroy()
+                            break
+                    for planet in Planet.lst:
+                        if planet.checkIntersect(part.shape):
+                            this.destroy()
+                            break
             planetVector = Planet.lst[0].pos.subtract(this.pos)
             if planetVector.magnitude() > View.maxDist:
                 this.v = planetVector.scale(.1)
@@ -705,6 +808,39 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
         def moveAll(dt):
             for ship in Ship.lst:
                 ship.moveShip(dt)
+                
+    class UpgradeStation(Ship):
+        def __init__(this,x,y,vx,vy,color):
+            this.x = x
+            this.y = y
+            this.pos = Point(x,y)
+            this.mass = 1
+            this.vx = vx
+            this.vy = vy
+            this.v = Point(vx,vy)
+            this.color = color
+            this.shapePoints = [Point(-30,0),Point(0,30),Point(30,0),Point(0,-30)]
+            this.shape = Polygon(x,y,this.shapePoints,color)
+            
+            this.angle = math.pi / 2
+            this.turn = 0
+            this.throttle = 0
+            
+            this.parts = []
+            this.relativeParts = []
+            this.partDict = {'Control':[],'Engines':[],'Fuel tanks':[],'Weapons':[]}
+            this.nameDisplay = Point(0,0)
+            this.lifeBar = Point(0,0)
+            
+            Ship.lst.append(this)
+            
+        def hit(this,bullet):
+            pass
+            
+        def destroy(this):
+            this.shape.destroy()
+            
+            
     
     def getSendAll():
         return {'circles':Circle.getSend(),
@@ -732,6 +868,12 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
         '''
         global star
         star = Planet(sx,sy, 0, 0, 75,1000000,'red',None,True)
+        
+        if upgradeType == 'ship builder':
+            print('creating upgrade station...',end='')
+            UpgradeStation(View.width//2,View.height//2 + 450, 170,1,'blue')
+            print('Done')
+            
         def spawnPlanets():
             global star
             for i in range(1,5):
@@ -769,17 +911,17 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             # if tab is not open, update not called -> dt very large -> spaceship moves very far from planet
             
         @socketio.on('first start', namespace='/'+name)
-        def start(name, ship=''):
+        def start(pname, ship=''):
             a = ControlUnit(0,0)
             a.destroy()
             print('===================== starting game '+name+'================================================')
             color = random.choice(['blue','green','white','yellow'])
             if (upgradeType=='ship builder'):
-                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name, 
+                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, pname, 
                     ship)
             else:
-                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name)
-            User(request.sid, s, View(s.x,s.y), name)
+                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, pname)
+            User(request.sid, s, View(s.x,s.y), pname)
             User.userDict[request.sid].builtShip = ship
             User.userDict[request.sid].shipSet = True
             updateScoreboard()
@@ -789,7 +931,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
         def restart():
             color = random.choice(['blue','green','white','yellow'])
             if (upgradeType=='ship builder'):
-                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, name, 
+                s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, User.userDict[request.sid].name, 
                     User.userDict[request.sid].builtShip)
             else:
                 s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, User.userDict[request.sid].name)
@@ -811,6 +953,21 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
         @socketio.on('shoot', namespace='/'+name)
         def fire():
             User.userDict[request.sid].ship.shoot()
+        
+        if oreMining:
+            @socketio.on('click', namespace='/'+name)
+            def deployMiner(x,y):
+                print('-------------------checking if valid target-------------------')
+                print('x',x,'y',y)
+                ship = User.userDict[request.sid].ship
+                pt = Point(x,y).add(ship.pos).subtract(Point(View.width/2,View.height/2))
+                print('x',pt.x,'y',pt.y)
+                for planet in Planet.lst:
+                    print('planet x',planet.x,'y',planet.y)
+                    if planet.pointIn(pt):
+                        OreMiner(ship.pos.x,ship.pos.y,planet)
+                        print('creating ore miner')
+                        break
         
         @socketio.on('upgrade', namespace='/'+name)
         def upgrade(part):
@@ -836,6 +993,8 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
                 Ship.moveAll(dt)
                 Bullet.moveAll(dt)
                 Planet.moveAll(dt)
+                if oreMining:
+                    OreMiner.moveAll(dt)
                 if upgradeType == 'ship builder':
                     pass
                     #print(len(getSend(Polygon)))
@@ -953,7 +1112,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False):
             
 
 createGame('simple')
-createGame('normal','ship builder',True)
+createGame('normal','ship builder',fuelLimit=True, oreMining=True)
 createGame('normalnofuellimit','ship builder')
 createGame('ship-builder','ship builder')
 

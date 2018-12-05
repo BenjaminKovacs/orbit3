@@ -110,9 +110,10 @@ function drawButton(button){
 var background;
 var vWidth = 1536;
 var vHeight = 754;
+var margin;
     socket.on('connect', function() {
         var canvas = document.getElementById('canvas');
-        var margin = 16; //remove scroll bars
+        margin = 16; //remove scroll bars
         var width = window.innerWidth-margin;
         var height = window.innerHeight-margin;
         var nameWidth = 20;
@@ -204,7 +205,14 @@ var vHeight = 754;
         upgrades--;
     }
 
+    socket.on('too expensive', function(){
+        alert('Your ship is too expensive, some parts may have been removed');
+    });
+
     window.addEventListener('mousedown', function (e) {
+        if (!start && !destroyed){
+            socket.emit('click',(e.clientX)/scale-margin/2,(e.clientY)/scale-margin/2);
+        }
         var count = 0;
         while(count < buttonList.length){
             var button = buttonList[count];
