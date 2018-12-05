@@ -22,7 +22,11 @@ socketio = SocketIO(app)
 global prevTime   
 prevTime = {}
 
-def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
+global saveFound
+global savedShip
+saveFound = False
+
+def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, collisions=True):
     global prevTime
     prevTime[name] = time.time()
     
@@ -93,7 +97,10 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                     'font':this.font}
                     
         def destroy(this):
-            Text.lst.remove(this)
+            try:
+                Text.lst.remove(this)
+            except:
+                print('WARNING: Text not in list')
             
     class Circle(object):
         lst = []
@@ -412,6 +419,24 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                     count += 1
             if count%2 == 1:
                 return True
+                
+        def checkIntersect(this,other):
+            if isinstance(other, Circle):
+                return other.checkIntersect(this)
+            elif isinstance(other, Polygon):
+                for i in range(len(this.points)):
+                    line1 = this.points[i].subtract(this.points[i-1])
+                    for j in range(len(other.points)):
+                        line2 = other.points[j].subtract(other.points[j-1])
+                        if line1.intersectDiff(line2):
+                            return True
+                other.updatePos()
+                this.updatePos()
+                if this.ptInPolygon(other.pos) or other.ptInPolygon(this.pos):
+                    return True
+                return False
+            print('WARNING: not a polygon or a circle')
+            return False
     
     def getDir(angle):
         return Point(math.cos(angle),math.sin(angle))
@@ -604,6 +629,10 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
             this.lifeBarSize = 20
             this.lifeBar = Rectangle(x,y-10,this.lifeBarSize,5,'green')
             
+            this.safe = False
+            this.onBoard = None
+            this.dockDelay = 0
+            
             if (upgradeType == 'simple'):
                 this.upgrades = 0
                 this.engine = Engine(1, x, y)
@@ -619,50 +648,77 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                 #https://docs.python.org/3/reference/executionmodel.html#naming-and-binding
                 print('===============================================')
                 print(len(Polygon.lst))
-                this.partDict = eval(parts[5:],{'ControlUnit':ControlUnit,'Basic':Basic,'FuelTank':FuelTank})#ship
-                print(len(Polygon.lst))
-                print('===============================================')
-                x = this.partDict['Control'][0].shape.x
-                y = this.partDict['Control'][0].shape.y
-                this.relativeParts = []
-                this.parts = []
-                this.mass = .00001
-                this.cost = 0
-                this.money = 5
-                tooExpensive = False
-                print(tooExpensive)
-                for k in this.partDict.keys():
-                    for part in this.partDict[k]:
-                        print(tooExpensive)
-                        this.parts.append(part)
-                        this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
-                        this.mass += part.mass
-                        this.cost += part.cost
-                        if this.cost > this.money:
-                            this.parts.pop()
-                            this.relativeParts.pop()
-                            this.mass -= part.mass
-                            this.cost -= part.cost
-                            part.destroy()
-                            tooExpensive = True
-                print(tooExpensive)            
-                if tooExpensive:
-                    socketio.emit('too expensive', room=id,namespace='/'+name)
-                
-                this.fuel = 0 
-                this.fuelMass = .05 
-                print(this.partDict)      
-                for tank in this.partDict['Fuel tanks']:
-                    this.fuel += tank.fuel
-                this.mass += this.fuel * this.fuelMass
+                foundKey = 'key=' in parts
+                print(parts)
+                if foundKey:
+                    key = parts[parts.find('key=')+len('key='):parts.find(';')]
+                    print(key)
+                    station = UpgradeStation.onBoardStation(key)
+                    if station != False:
+                        ship = station.boardedShips[key]
+                        ship.hide = False
+                        ship.id = id
+                        ship.name = name
+                        ship.weapon.id = id
+                        print('saved game found')
+                        this = ship
+                        global saveFound
+                        global savedShip
+                        saveFound = True
+                        savedShip = ship
+                        socketio.emit('board station',key,room=this.id,namespace='/'+name)
+                        socketio.emit('view dock',room=this.id,namespace='/'+name)
+                        return None
+                if not foundKey or station == False:
+                    print(parts.find('ship=')+5)
+                    shipCode = parts[(parts.find('ship=')+5):]#parts.find(';')
+                    if ';' in shipCode:
+                        shipCode = shipCode[:shipCode.find(';')]
+                    print('ship code',shipCode)
+                    this.partDict = eval(shipCode,{'ControlUnit':ControlUnit,'Basic':Basic,'FuelTank':FuelTank})#ship
+                    print(len(Polygon.lst))
+                    print('===============================================')
+                    x = this.partDict['Control'][0].shape.x
+                    y = this.partDict['Control'][0].shape.y
+                    this.relativeParts = []
+                    this.parts = []
+                    this.mass = .00001
+                    this.cost = 0
+                    this.money = 5
+                    tooExpensive = False
+                    print(tooExpensive)
+                    for k in this.partDict.keys():
+                        for part in this.partDict[k]:
+                            print(tooExpensive)
+                            this.parts.append(part)
+                            this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
+                            this.mass += part.mass
+                            this.cost += part.cost
+                            if this.cost > this.money:
+                                this.parts.pop()
+                                this.relativeParts.pop()
+                                this.mass -= part.mass
+                                this.cost -= part.cost
+                                part.destroy()
+                                tooExpensive = True
+                    print(tooExpensive)            
+                    if tooExpensive:
+                        socketio.emit('too expensive', room=id,namespace='/'+name)
                     
-            #TODO: create class for stats bars instead of handling them individually
-            if fuelLimit:
-                this.maxFuel = this.fuel
-                this.fuelBarSize = 20
-                this.fuelBar = Rectangle(x,y-15,this.fuelBarSize,5,'red')
-                
-            
+                    this.fuel = 0 
+                    this.fuelMass = .05 
+                    print(this.partDict)      
+                    for tank in this.partDict['Fuel tanks']:
+                        this.fuel += tank.fuel
+                    this.mass += this.fuel * this.fuelMass
+                        
+                    #TODO: create class for stats bars instead of handling them individually
+                    if fuelLimit:
+                        this.maxFuel = this.fuel
+                        this.fuelBarSize = 20
+                        this.fuelBar = Rectangle(x,y-15,this.fuelBarSize,5,'red')
+                        
+                    
             this.id = id
             this.angle = math.pi / 2
             this.turn = 0
@@ -716,6 +772,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
         def moveShip(this,dt):
             this.angle -= this.turn
             this.shape.rotate(this.turn)
+            this.dockDelay -= dt
             
             if upgradeType == 'ship builder' and this.parts != None:
                 for part in this.parts:
@@ -748,20 +805,52 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                         this.destroy()
                         break
             else:
-                for part in this.parts:
-                    for bullet in Bullet.lst:
-                        if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(part.shape):
-                            this.hit(bullet)
-                            #this.destroy()
-                            bullet.destroy()
-                            break
-                    for planet in Planet.lst:
-                        if planet.checkIntersect(part.shape):
-                            this.destroy()
-                            break
+                if not this.safe:
+                    for part in this.parts:
+                        for bullet in Bullet.lst:
+                            if ((time.time() - bullet.timeShot) > .1) and bullet.checkIntersect(part.shape):
+                                this.hit(bullet)
+                                #this.destroy()
+                                bullet.destroy()
+                                break
+                        for planet in Planet.lst:
+                            if planet.checkIntersect(part.shape):
+                                this.destroy()
+                                break
+                    for ship in Ship.lst:
+                        if ship != this and this.checkIntersect(ship):
+                            if isinstance(ship, UpgradeStation):
+                                if this.dockDelay <= 0:
+                                    this.boardUpgradeStation(ship)
+                                    print('you have docked with an upgrade station')
+                            else:
+                                print('ship collision')
+                                this.destroy()
+                                ship.destroy()
+                                break
             planetVector = Planet.lst[0].pos.subtract(this.pos)
             if planetVector.magnitude() > View.maxDist:
                 this.v = planetVector.scale(.1)
+                
+            if this.safe and this.onBoard != None:
+                this.pos = this.onBoard.pos
+                this.updatePolygon()
+        
+        def checkIntersect(this, other):
+            if isinstance(other, UpgradeStation):
+                for part in this.parts:
+                    if part.shape.checkIntersect(other.shape):
+                        return True
+                return False
+            elif isinstance(other,Ship):
+                for part in this.parts:
+                    for otherPart in other.parts:
+                        if part.shape.checkIntersect(otherPart.shape):
+                            return True
+                return False
+            print('WARNING: other is not a ship')
+            return False
+                
         
         def shoot(this):
             x = this.pos.x + this.shape.points[1].x
@@ -803,6 +892,26 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                     print(User.userDict[bullet.id].ship.upgrades)
                 updateScoreboard()
             print(damage)
+        
+        def hide(this, hidden=True):
+            for part in this.parts:
+                part.shape.hide = hidden
+            
+        def boardUpgradeStation(this, station):
+            this.hide()
+            this.safe = True
+            this.onBoard = station
+            saveKey = this.id
+            station.boardedShips[saveKey] = this 
+            socketio.emit('board station',str(saveKey),room=this.id,namespace='/'+name)
+            
+        def undock(this):
+            this.hide(False)
+            this.dockDelay = 1000
+            this.safe = False
+            #station = onBoardStation(this.id)
+            #if station != False:
+            #    pass
             
         @staticmethod
         def moveAll(dt):
@@ -810,6 +919,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                 ship.moveShip(dt)
                 
     class UpgradeStation(Ship):
+        lst = []
         def __init__(this,x,y,vx,vy,color):
             this.x = x
             this.y = y
@@ -825,6 +935,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
             this.angle = math.pi / 2
             this.turn = 0
             this.throttle = 0
+            this.dockDelay = 0
             
             this.parts = []
             this.relativeParts = []
@@ -832,15 +943,27 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
             this.nameDisplay = Point(0,0)
             this.lifeBar = Point(0,0)
             
+            this.safe = False
+            
+            this.boardedShips = {}
+            
             Ship.lst.append(this)
+            UpgradeStation.lst.append(this)
             
         def hit(this,bullet):
             pass
             
         def destroy(this):
             this.shape.destroy()
+            Ship.lst.remove(this)
+            UpgradeStation.lst.remove(this)
             
-            
+        @staticmethod
+        def onBoardStation(id):
+            for station in UpgradeStation.lst:
+                if id in station.boardedShips.keys():
+                    return station
+            return False
     
     def getSendAll():
         return {'circles':Circle.getSend(),
@@ -919,6 +1042,11 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
             if (upgradeType=='ship builder'):
                 s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, pname, 
                     ship)
+                global saveFound
+                global savedShip
+                if saveFound:
+                    saveFound = False
+                    s = savedShip
             else:
                 s = Ship(View.width//2,View.height//2 + 400, 1,170,0,color,request.sid, pname)
             User(request.sid, s, View(s.x,s.y), pname)
@@ -982,6 +1110,11 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False):
                     ship.weapon.bspeed += 50
                     ship.upgrades -= 1
                     print('bspeed increased')
+                    
+        @socketio.on('undock', namespace='/'+name)
+        def undock():
+            ship = User.userDict[request.sid].ship
+            ship.undock()
             
         def tick():
             print('running',name)
