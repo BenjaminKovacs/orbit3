@@ -693,6 +693,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 foundKey = 'key=' in parts
                 print(parts)
                 if foundKey:
+                    #https://www.tutorialspoint.com/python/string_find.htm
                     key = parts[parts.find('key=')+len('key='):parts.find(';')]
                     print(key)
                     station = UpgradeStation.onBoardStation(key)
