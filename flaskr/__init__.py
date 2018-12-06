@@ -708,8 +708,8 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                         global savedShip
                         saveFound = True
                         savedShip = ship
-                        socketio.emit('board station',key,room=this.id,namespace='/'+name)
-                        socketio.emit('view dock',room=this.id,namespace='/'+name)
+                        socketio.emit('board station',key,room=ship.id,namespace='/'+name)
+                        socketio.emit('view dock',room=ship.id,namespace='/'+name)
                         createParts(ship, parts, 15)
                         ship.shape.hide = True
                         this.shape.hide = True
@@ -741,7 +741,6 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
             
             this.name = name
             this.nameDisplay = Text(x,y,name)
-            
             Ship.lst.append(this)
             
         def updatePolygon(this):
@@ -1277,6 +1276,10 @@ createGame('ship-builder','ship builder')
 @app.route('/hello')
 def hello():
     return render_template('test.html')
+    
+@app.route('/')
+def home():
+    return render_template('home.html')
 
 @app.route('/test')
 def index():

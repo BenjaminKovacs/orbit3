@@ -1,0 +1,155 @@
+<!--<span id='test'></span>
+<br></br>
+yay, it works!-->
+<!--https://stackoverflow.com/questions/2941189/how-to-overlay-one-div-over-another-div-->
+<!--<div id='name entry' style='position:absolute; z-index:2; color:white'>test</div>-->
+<div id='add' style="text-align:center; margin:auto"></div>
+<canvas id='canvas'></canvas>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+<script type="text/javascript" charset="utf-8">
+//socket.io setup code from https://flask-socketio.readthedocs.io/en/latest/
+var buttonList = [];
+class Button{
+    constructor(x,y,width,height,color,text,font,textColor, fun){
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color = color;
+        this.text = text;
+        this.font = font;
+        this.textColor = textColor;
+        this.fun = fun;
+        buttonList.push(this);
+    }
+    
+}
+
+function drawButton(button){
+        context.fillStyle = button.color;
+        context.fillRect(button.x-button.width/2,button.y-button.height/2,button.width,button.height);
+        context.fillStyle = button.textColor;
+        context.textAlign = "center";
+        context.font = button.font;
+        context.fillText(button.text,button.x,button.y);
+    }
+
+    var socket = io.connect(document.URL);
+    var rectangles = [];
+    var text = [];
+  
+var background;
+var vWidth = 1536;
+var vHeight = 754;
+var margin;
+    socket.on('connect', function() {
+        var canvas = document.getElementById('canvas');
+        margin = 16; //remove scroll bars
+        var width = window.innerWidth-margin;
+        var height = window.innerHeight-margin;
+        var nameWidth = 20;
+        //https://stackoverflow.com/questions/17177950/text-aligncenter-not-working-with-div-elements
+        //https://www.w3schools.com/css/css_align.asp
+        document.getElementById('add').innerHTML = "<div id='name entry' style='text-align:center; position:absolute;"
+            + " z-index:2; color:white; top:"+height/2+"; text-align:center; width:100%'></div>";
+        //https://www.w3schools.com/html/html_forms.asp
+        //https://www.w3schools.com/tags/att_input_placeholder.asp
+        //document.getElementById('name entry').innerHTML = 'is this centered?????????? noooooooooooooooo';
+        document.getElementById('name entry').innerHTML = 
+            "<a href='/simple'; size="+nameWidth
+            +" style='text-align:left'>Simple</a><br></br>"+
+            "<a href='/normal'; size="+nameWidth
+            +" style='text-align:left'>Normal</a>";
+
+        document.getElementById('add').innerHTML += "<div id='2' style='text-align:center; position:absolute;"
+            + " z-index:2; color:white; top:"+(3*height/4 + 100)+"; text-align:center; width:100%'></div>";
+        document.getElementById('2').innerHTML = "<a href='/ship-builder'; size="+nameWidth
+            +" style='text-align:left'>Ship Builder</a>"
+
+        //console.log(document.getElementById('name').size);
+        var whRatio = 1536/754;
+        if (width/height > whRatio){
+            canvas.height = height;
+            canvas.width = whRatio * height;
+        }
+        else{
+            canvas.width = width;
+            canvas.height = width/whRatio;
+        }
+        scale = canvas.width/1536;
+        context = canvas.getContext('2d');
+        context.fillStyle = 'black';
+        context.fillRect(0,0,canvas.width,canvas.height);
+        var b = new Button(canvas.width/2,2*canvas.height/3,200,60,'green','start game',
+            '30px Arial','white','startGame()');
+
+        //https://www.w3schools.com/tags/canvas_drawimage.asp
+        //https://stackoverflow.com/questions/4276048/html5-canvas-fill-circle-with-image
+        //load image
+        //image from https://insider.si.edu/wp-content/uploads/2015/08/M43_beletsky.jpg
+        background = new Image();
+        background.addEventListener('load',function(e){
+            tick();
+        }, true);
+        background.src = 'https://insider.si.edu/wp-content/uploads/2015/08/M43_beletsky.jpg'
+
+        
+    });
+
+    window.addEventListener('mousedown', function (e) {
+        var count = 0;
+        while(count < buttonList.length){
+            var button = buttonList[count];
+            var xCond = (button.x-button.width/2 <= e.clientX) && (e.clientX <= button.x+button.width/2);
+            var yCond = (button.y-button.height/2 <= e.clientY) && (e.clientY <= button.y+button.height/2);
+            if (xCond && yCond){
+                eval(button.fun);
+            }
+            count++;
+        }
+    });
+
+function drawText(view){
+    var count = 0;
+    while (count < text.length){
+        var txt = text[count];
+        context.fillStyle = txt.color;
+        context.textAlign = "center";
+        context.font = txt.font;
+        context.fillText(txt.text,txt.x-view.x+canvas.width/2,txt.y-view.y+canvas.height/2);
+        count++;
+    }
+}
+
+    function drawRectangles(view){
+        var count = 0;
+        while (count < rectangles.length){
+            r = rectangles[count];
+            context.fillStyle = r.color;
+            context.fillRect(r.x-view.x+canvas.width/2,r.y-view.y+canvas.height/2,r.width,r.height);
+            count++;
+        }
+    }
+    function drawButtons(){
+        var count = 0;
+        while(count<buttonList.length){
+            drawButton(buttonList[count]);
+            count++;
+        }
+    }
+
+    function tick(){
+        
+        context.drawImage(background,0,0);
+        context.fillStyle = 'white';
+        context.textAlign = "center";
+        context.font = "30px Arial";
+        context.fillText("Choose a game mode",canvas.width/2,canvas.height/3);
+        context.fillText("Or build a ship",canvas.width/2,3*canvas.height/4);
+        context.fillStyle = 'yellow';
+        context.fillRect(canvas.width/2 - 85, canvas.height/2 - 75, 200, 200);
+        context.fillRect(canvas.width/2 - 85, 3*canvas.height/4 + 50, 200, 100);
+        window.requestAnimationFrame(tick);
+    }
+</script>
+
