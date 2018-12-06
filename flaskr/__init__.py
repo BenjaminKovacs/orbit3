@@ -47,6 +47,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
             this.view = view
             this.name = name
             this.score = 0
+            this.ore = 0
             User.userDict[id] = this
             if upgradeType == 'ship builder':
                 this.shipSet = False
@@ -474,7 +475,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
     
     class Basic(Engine):
         def __init__(this, x, y):
-            force = 1
+            force = 10
             super().__init__(force,x,y)
             this.efficiency = 1
             this.points = [Point(-8,-4),Point(-5,0),Point(5,0),Point(8,-4)]
@@ -568,9 +569,11 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
     #TODO: make ore miners obey the laws of physics        
     class OreMiner(object):
         lst = []
-        def __init__(this,x,y, target):
+        def __init__(this,x,y, target, id):
             this.x = x
             this.y = y
+            this.id = id
+            print(id)
             this.speed = 300
             this.pos = Point(x,y)
             this.target = target
@@ -594,12 +597,14 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 if not this.landed:
                     this.posRel = this.pos.subtract(this.target.pos)
                     this.landed = True
-                    print(this.posRel.x,this.posRel.y)
-                print('this',this.pos.x,this.pos.y)
+                    #print(this.posRel.x,this.posRel.y)
+                #print('this',this.pos.x,this.pos.y)
                 this.ore += dt
+                User.userDict[this.id].ore += dt
+                socketio.emit('ore mined',User.userDict[this.id].ore,room=this.id, namespace = '/'+name)
                 this.pos = this.posRel.add(this.target.pos)
-                print('target',this.target.pos.x,this.target.pos.y)
-                print('updated',this.pos.x,this.pos.y)
+                #print('target',this.target.pos.x,this.target.pos.y)
+                #print('updated',this.pos.x,this.pos.y)
             this.updatePolygon()
                 
         def destroy(this):
@@ -609,7 +614,44 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
         def moveAll(dt):
             for miner in OreMiner.lst:
                 miner.move(dt)
-              
+    
+    def createParts(this, parts, cost):
+        print(parts.find('ship=')+5)
+        shipCode = parts[(parts.find('ship=')+5):]#parts.find(';')
+        if ';' in shipCode:
+            shipCode = shipCode[:shipCode.find(';')]
+        print('ship code',shipCode)
+        this.partDict = eval(shipCode,{'ControlUnit':ControlUnit,'Basic':Basic,'FuelTank':FuelTank})#ship
+        print(len(Polygon.lst))
+        print('===============================================')
+        x = this.partDict['Control'][0].shape.x
+        y = this.partDict['Control'][0].shape.y
+        this.relativeParts = []
+        this.parts = []
+        this.mass = .00001
+        this.cost = 0
+        this.money = cost
+        tooExpensive = False
+        print(tooExpensive)
+        for k in this.partDict.keys():
+            for part in this.partDict[k]:
+                print(tooExpensive)
+                this.parts.append(part)
+                this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
+                this.mass += part.mass
+                this.cost += part.cost
+                if this.cost > this.money:
+                    this.parts.pop()
+                    this.relativeParts.pop()
+                    this.mass -= part.mass
+                    this.cost -= part.cost
+                    part.destroy()
+                    tooExpensive = True
+        print(tooExpensive)            
+        if tooExpensive:
+            socketio.emit('too expensive', room=id,namespace='/'+name)
+        return this.cost
+            
     class Ship(object):
         lst = []
         def __init__(this, x, y, mass, vx, vy, color, id, name, parts=[]):
@@ -640,7 +682,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 this.fuel = 100
             
             elif (upgradeType == 'ship builder'):
-                this.engine = Basic(x,y)
+                #this.engine = Basic(x,y)
                 this.weapon = Weapon(2, 100, 'orange', 2, id) #old bspeed = 200 bmass = 1
                 #exec(parts)#exec(parts)
                 #ControlUnit(0,0)
@@ -661,49 +703,20 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                         ship.name = name
                         ship.weapon.id = id
                         print('saved game found')
-                        this = ship
+                        #this = ship
                         global saveFound
                         global savedShip
                         saveFound = True
                         savedShip = ship
                         socketio.emit('board station',key,room=this.id,namespace='/'+name)
                         socketio.emit('view dock',room=this.id,namespace='/'+name)
+                        createParts(ship, parts, 15)
+                        ship.shape.hide = True
+                        this.shape.hide = True
+                        ship.weapon = Weapon(2, 100, 'orange', 2, id)
                         return None
                 if not foundKey or station == False:
-                    print(parts.find('ship=')+5)
-                    shipCode = parts[(parts.find('ship=')+5):]#parts.find(';')
-                    if ';' in shipCode:
-                        shipCode = shipCode[:shipCode.find(';')]
-                    print('ship code',shipCode)
-                    this.partDict = eval(shipCode,{'ControlUnit':ControlUnit,'Basic':Basic,'FuelTank':FuelTank})#ship
-                    print(len(Polygon.lst))
-                    print('===============================================')
-                    x = this.partDict['Control'][0].shape.x
-                    y = this.partDict['Control'][0].shape.y
-                    this.relativeParts = []
-                    this.parts = []
-                    this.mass = .00001
-                    this.cost = 0
-                    this.money = 5
-                    tooExpensive = False
-                    print(tooExpensive)
-                    for k in this.partDict.keys():
-                        for part in this.partDict[k]:
-                            print(tooExpensive)
-                            this.parts.append(part)
-                            this.relativeParts.append(Point(part.shape.x - x,part.shape.y - y))
-                            this.mass += part.mass
-                            this.cost += part.cost
-                            if this.cost > this.money:
-                                this.parts.pop()
-                                this.relativeParts.pop()
-                                this.mass -= part.mass
-                                this.cost -= part.cost
-                                part.destroy()
-                                tooExpensive = True
-                    print(tooExpensive)            
-                    if tooExpensive:
-                        socketio.emit('too expensive', room=id,namespace='/'+name)
+                    createParts(this, parts, 115)
                     
                     this.fuel = 0 
                     this.fuelMass = .05 
@@ -717,6 +730,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                         this.maxFuel = this.fuel
                         this.fuelBarSize = 20
                         this.fuelBar = Rectangle(x,y-15,this.fuelBarSize,5,'red')
+                this.shape.hide = True
                         
                     
             this.id = id
@@ -770,11 +784,14 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 
             
         def moveShip(this,dt):
-            this.angle -= this.turn
-            this.shape.rotate(this.turn)
+            if not this.safe:
+                this.angle -= this.turn
+                this.shape.rotate(this.turn)
+            else:
+                socketio.emit('view dock',room=this.id,namespace='/'+name)
             this.dockDelay -= dt
             
-            if upgradeType == 'ship builder' and this.parts != None:
+            if upgradeType == 'ship builder' and this.parts != None and not this.safe:
                 for part in this.parts:
                     #part.shape.updatePos()
                     part.shape.rotate(this.turn, this.pos.subtract(part.shape.pos)) #why does pos not need to be updated?
@@ -784,7 +801,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                         pass
                 for engine in this.partDict['Engines']:
                     engine.fire(this,dt)
-            else:
+            elif upgradeType != 'ship builder':
                 this.engine.exhaust.rotate(this.turn)
                 this.v = this.v.add(getDir(this.angle).scale(this.throttle*this.engine.force/this.mass).scale(dt))
                 this.engine.exhaust.hide = (this.throttle == 0)
@@ -820,6 +837,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                     for ship in Ship.lst:
                         if ship != this and this.checkIntersect(ship):
                             if isinstance(ship, UpgradeStation):
+                                print('dockDelay',this.dockDelay)
                                 if this.dockDelay <= 0:
                                     this.boardUpgradeStation(ship)
                                     print('you have docked with an upgrade station')
@@ -863,7 +881,10 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
             if fuelLimit:
                 this.fuelBar.destroy()
             this.nameDisplay.destroy()
-            Ship.lst.remove(this)
+            try:
+                Ship.lst.remove(this)
+            except:
+                print('WARNING: Ship not in list')
             socketio.emit('destroyed','stuff',room=this.id,namespace='/'+name)
             User.userDict[this.id].score = 0
             updateScoreboard()
@@ -893,9 +914,13 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 updateScoreboard()
             print(damage)
         
-        def hide(this, hidden=True):
+        def hide(this,hidden=True):
             for part in this.parts:
                 part.shape.hide = hidden
+                
+        def show(this):
+            for part in this.parts:
+                part.shape.hide = False
             
         def boardUpgradeStation(this, station):
             this.hide()
@@ -906,8 +931,8 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
             socketio.emit('board station',str(saveKey),room=this.id,namespace='/'+name)
             
         def undock(this):
-            this.hide(False)
-            this.dockDelay = 1000
+            this.show()
+            this.dockDelay = 1
             this.safe = False
             #station = onBoardStation(this.id)
             #if station != False:
@@ -1093,7 +1118,7 @@ def createGame(name, upgradeType='simple', fuelLimit=False, oreMining=False, col
                 for planet in Planet.lst:
                     print('planet x',planet.x,'y',planet.y)
                     if planet.pointIn(pt):
-                        OreMiner(ship.pos.x,ship.pos.y,planet)
+                        OreMiner(ship.pos.x,ship.pos.y,planet,request.sid)
                         print('creating ore miner')
                         break
         

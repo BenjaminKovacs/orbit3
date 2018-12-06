@@ -64,6 +64,7 @@ function drawButton(button){
 
     socket.on('destroyed',function(data){
         destroyed = true;
+        buttonList = [];
         var b = new Button(canvas.width/2,2*canvas.height/3,200,60,'green','Play again',
             "30px Arial", 'white','newGame()');
         console.log('destroyed');
@@ -218,9 +219,17 @@ var margin;
         console.log('leaving');
         socket.emit('undock');
         document.getElementById('docking').innerHTML = '';
+        showingDock = false;
     }
+    var ore = 0;
+    socket.on('ore mined', function(amount){
+        ore = JSON.parse(JSON.stringify(amount));
+        console.log('ore '+ore);
+    });
 
+    var showingDock = false;
     function viewDock(){
+        if (!showingDock){
         document.getElementById('dock add').innerHTML = "<div id='docking' style='text-align:center; position:absolute;"
             + " z-index:2; color:white; top:"+vHeight/2+"; text-align:center; width:100%'></div>";
         document.getElementById('docking').innerHTML = 
@@ -228,6 +237,8 @@ var margin;
             +"Buy fuel </button>" + "<button style='text-align:left' onclick ='heal()'>"
             +"Repair Ship </button>" + "<button style='text-align:left' onclick ='leave()'>"
             +"Undock from station </button>" + "<a href='../ship-builder'>Edit ship</a>";
+        showingDock = true;
+        }
     }
 
     socket.on('board station', function(saveKey){
@@ -540,6 +551,9 @@ function drawHighScores(){
             context.textAlign = "left";
             context.font = "30px Arial";
             context.fillText("Destroyed: "+score,30,50);
+            if (ore > 0){
+                context.fillText("Ore mined: "+ore,30,150);
+            }
             drawText(view);
             drawRectangles(view);
             drawHighScores();
